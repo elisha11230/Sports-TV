@@ -136,9 +136,9 @@ html.dev-phone .sheet{padding:16px}
 
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081645"></script>
-<script src="tv/boxscore.js?v=202611081645"></script>
-<script src="tv/common.js?v=202611081645"></script>
+<script src="tv/tv-nav.js?v=202611081702"></script>
+<script src="tv/boxscore.js?v=202611081702"></script>
+<script src="tv/common.js?v=202611081702"></script>
 </head>
 <body>
 <header class="top">
@@ -217,6 +217,8 @@ html.dev-phone .sheet{padding:16px}
       <label class="f" for="sf-url">Address</label><input class="t" id="sf-url" type="url" placeholder="https://example.com/watch/{away}-{home}">
       <label class="f" for="sf-replay">Full game replay address (optional, for finished games)</label><input class="t" id="sf-replay" type="url" placeholder="https://example.com/replay/{date}/{away}-{home}">
       <label class="f" for="sf-cond">Condensed game address (optional)</label><input class="t" id="sf-cond" type="url" placeholder="https://example.com/condensed/{date}/{away}-{home}">
+      <div class="sec">Popups and redirects</div><div class="seg" id="sf-sandbox"></div>
+      <p class="note">“Block them” runs the player sandboxed, which stops more ads but some sites won’t play that way. Either way, the app blocks popups and redirects on the player and multiview.</p>
       <p class="note">Codes filled in per game: <code>{date}</code> <code>{yyyymmdd}</code> <code>{away}</code> <code>{home}</code> <code>{AWAY}</code> <code>{HOME}</code> <code>{awayNick}</code> <code>{homeNick}</code> <code>{awayName}</code> <code>{homeName}</code> <code>{gameId}</code></p>
     </div>
     <div id="sf-appbox" hidden>
@@ -603,6 +605,8 @@ function drawForm() {
   segButtons('sf-type', [['embed', 'Web player'], ['video', 'Video stream (HLS / MP4)'], ['app', 'Open an app']], form.type, 'ty');
   $('sf-urlbox').hidden = form.type === 'app';
   $('sf-appbox').hidden = form.type !== 'app';
+  segButtons('sf-sandbox', [['off', 'Allow (most sites need this)'], ['on', 'Block them']], form.sandbox ? 'on' : 'off', 'sb');
+  $('sf-sandbox').previousElementSibling.hidden = $('sf-sandbox').nextElementSibling.hidden = $('sf-sandbox').hidden = form.type !== 'embed';
   if (form.type === 'app') {
     $('sf-apps').innerHTML = '<p class="note">Loading apps…</p>';
     (STV.bridge ? STV.bridge.call('listApps') : Promise.resolve(null)).then(apps => {
@@ -614,7 +618,7 @@ function drawForm() {
 }
 function openForm(i) {
   const l = STV.localSources(), s = i >= 0 ? l[i] : {};
-  form = { i, sport: s.sport || 'all', type: s.type || 'embed', sandbox: s.sandbox !== false };
+  form = { i, sport: s.sport || 'all', type: s.type || 'embed', sandbox: s.sandbox === true };
   $('sf-title').textContent = i >= 0 ? 'Edit source' : 'Add a source';
   $('sf-name').value = s.name || ''; $('sf-url').value = s.url || ''; $('sf-pkg').value = s.pkg || ''; $('sf-replay').value = s.replay || ''; $('sf-cond').value = s.condensed || '';
   drawForm(); showLayer('srcform');

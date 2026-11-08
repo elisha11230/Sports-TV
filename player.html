@@ -50,10 +50,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081645"></script>
-<script src="tv/common.js?v=202611081645"></script>
-<script src="tv/boxscore.js?v=202611081645"></script>
-<script src="tv/alerts.js?v=202611081645"></script>
+<script src="tv/tv-nav.js?v=202611081702"></script>
+<script src="tv/common.js?v=202611081702"></script>
+<script src="tv/boxscore.js?v=202611081702"></script>
+<script src="tv/alerts.js?v=202611081702"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -206,7 +206,9 @@ async function play(i) {
     startDog();
   } else {
     const f = document.createElement('iframe');
-    // no sandbox: stream sites refuse to play in one. The app itself blocks their popups and redirects.
+    // sandboxed only when the source asks for it ("Popups and redirects: Block them"); most stream sites
+    // won't play in a sandbox. The app blocks their popups and redirects either way.
+    if (s.sandbox === true) f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock');
     f.src = url;
     f.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
     f.allowFullscreen = true;
