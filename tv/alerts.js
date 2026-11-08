@@ -4,6 +4,8 @@
    Up adds that game to multiview (or swaps it in), Back closes the popup. On a phone, tap the buttons.
    A page turns it on with ALERTS.start({ watching, act, actLabel }). */
 (function () {
+  // switched off for now (Elisha, Nov 8): set to true to bring alerts and their settings back
+  var ENABLED = false;
   var PATHS = { nba: 'basketball/nba', nfl: 'football/nfl' };
   var NAME = { nba: 'NBA', nfl: 'NFL' };
   var CLOSE = { nba: 5, nfl: 8 };      // points: a close game
@@ -125,7 +127,8 @@
   window.__tvBack = function () { if (cur) { close(); return true; } return back ? back.apply(this, arguments) : false; };
 
   window.ALERTS = {
-    start: function (c) { cfg = c; setTimeout(poll, 4000); },
+    enabled: ENABLED,
+    start: function (c) { cfg = c; if (ENABLED) setTimeout(poll, 4000); },
     isOpen: function () { return !!cur; },
     // for testing: run the rules on a scoreboard
     _check: function (sport, ev) { check(sport, ev); }

@@ -108,6 +108,8 @@ The player and each multiview tile watch their stream. With no video after 25 se
 🔍 Search on the home screen (or a remote's Search key) takes a team, a city or a channel, typed or spoken: "Knicks", "New York", "Chiefs game tomorrow", "RedZone", "NFL Network". It looks through yesterday, today and the next 6 days. Starting with "watch" ("watch the Jets") goes straight to a live game. Speak uses the device's speech service (phones, and Fire TVs that have one); without one, the keyboard's mic (on Fire TV, hold the remote's 🎤 while the keyboard is up) types into the box.
 
 ## Game alerts
+Switched off for now (`ENABLED` in `tv/alerts.js`; the Settings section is hidden too). How they work when on:
+
 While a game or multiview is playing, the NBA and NFL scoreboards are checked every 30 seconds (`tv/alerts.js`). A popup comes up when another live game is within 5 (NBA) or 8 (NFL) points with 5 minutes or less left in the 4th, goes to overtime, or, if turned on, an NFL team reaches the red zone. Up adds it to multiview (with 4 games up it swaps out the selected game, or the first one without the sound) and the sound moves to it; Back dismisses. Each can be turned on or off in Settings. With scores hidden, popups don't show the score.
 
 ## Adding a sport
