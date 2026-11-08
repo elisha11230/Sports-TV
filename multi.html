@@ -20,6 +20,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #grid.focus.n4{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr 1fr;align-content:stretch;align-items:stretch}
 #grid.focus .tile.big{grid-row:1/-1;order:-1}
 #grid.n1 .tile,#grid.n2 .tile{aspect-ratio:16/9}
+#grid.solo .tile{display:none}
+#grid.solo .tile.solo{display:block;position:fixed;inset:0;z-index:5;aspect-ratio:auto}
+#grid.solo .tile.solo::after{display:none}
 .tile{position:relative;background:#05080E;overflow:hidden;min-height:0}
 .tile iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
 .tile::after{content:"";position:absolute;inset:0;pointer-events:none;border:3px solid transparent;transition:border-color .15s}
@@ -83,9 +86,9 @@ html.dev-phone .ttl h1{font-size:17px}
 html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081338"></script>
-<script src="tv/common.js?v=202611081338"></script>
-<script src="tv/boxscore.js?v=202611081338"></script>
+<script src="tv/tv-nav.js?v=202611081342"></script>
+<script src="tv/common.js?v=202611081342"></script>
+<script src="tv/boxscore.js?v=202611081342"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -115,6 +118,7 @@ const multi = () => { try { return JSON.parse(sessionStorage.getItem('stv.multi'
 const saveMulti = l => sessionStorage.setItem('stv.multi', JSON.stringify(l));
 
 let KEY = null, tiles = [], sel = 0, audio = 0, big = 0, hideT = null, qualOpen = false;
+let solo = -1;   // the game shown full screen, or -1 for the grid
 function qualLabel(q) {
   if (q.cur === 'auto') return 'Auto' + (q.now ? ` (${q.now})` : '');
   const it = q.list.find(x => x.id === q.cur);
@@ -144,7 +148,7 @@ const behind = s => { s = Math.round(s); const m = Math.floor(s / 60); return m 
 $('grid').addEventListener('click', e => {
   const cap = e.target.closest('.cap'); if (!cap) return;
   const i = [...$('grid').children].indexOf(cap.closest('.tile'));
-  if (i >= 0) { sel = i; setAudio(i); }
+  if (i >= 0) { if (solo >= 0) return; if (sel === i && audio === i && e.detail >= 2) { enterSolo(i); return; } sel = i; setAudio(i); }
 });
 function tileEl(i) { return $('grid').children[i]; }
 const tileInner = t => `${frameFor(t)}<div class="cap"><span class="sp">🔊</span><b>${esc(t.v.title)}</b><span class="st"></span></div>`;
@@ -173,13 +177,14 @@ function tapTile(i) {
 }
 function paint() {
   const n = tiles.length;
-  const cls = `n${n} ${n > 1 ? layout : 'grid'}`;
+  const cls = `n${n} ${n > 1 ? layout : 'grid'}${solo >= 0 ? ' solo' : ''}`;
   if ($('grid').className !== cls) $('grid').className = cls;
   tiles.forEach((t, i) => {
     const el = tileEl(i);
     el.classList.toggle('sel', i === sel && n > 1);
     el.classList.toggle('aud', i === audio);
     el.classList.toggle('big', i === big);
+    el.classList.toggle('solo', i === solo);
     const st = el.querySelector('.st');
     // whole seconds would change every check; show the time behind to the nearest 10 seconds
     const txt = !KEY ? '' : !t.st ? 'connecting…' : !t.st.has ? 'tap video' : t.st.paused ? 'paused'
@@ -210,8 +215,8 @@ function autoQuality() {
     const q = t.st && t.st.has && t.st.q;
     if (!q || !q.list || !q.list.length || t.qManual) return;
     // fewer than 3 games: leave untouched players on their own Auto; ones we lowered go back up
-    if (!busy && !t.qWant) return;
-    const want = busy && i !== audio ? lightId(q) : bestId(q);
+    if (!busy && !t.qWant && solo < 0) return;
+    const want = solo >= 0 ? (i === solo ? bestId(q) : lightId(q)) : (busy && i !== audio ? lightId(q) : bestId(q));
     if (!want || t.qWant === want) return;
     t.qWant = want;
     send(i, 'quality', want);
@@ -223,6 +228,24 @@ function send(i, a, v) {
   const el = tileEl(i), f = el && el.querySelector('iframe');
   if (!f || !f.contentWindow || !KEY) return;
   try { f.contentWindow.postMessage({ stv: 'cmd', key: KEY, a, v }, '*'); } catch (e) {}
+}
+/* ---------- one game full screen, without leaving multiview ----------
+   It gets the sound and its best quality; the others pause so only one stream is decoded. Left and right
+   switch which game fills the screen; Back returns to the grid, where paused live games jump to live. */
+function enterSolo(i) {
+  if (!tiles[i]) return;
+  solo = i; sel = i;
+  tiles.forEach((t, j) => { if (j !== i) send(j, 'pause'); else send(j, 'play'); });
+  hideBar();
+  setAudio(i);
+  nav() && nav().toast(tiles.length > 1 ? `${tiles[i].v.title} · Left/Right: other games · Back: all games` : tiles[i].v.title, 2600);
+}
+function exitSolo() {
+  if (solo < 0) return;
+  const was = solo;
+  solo = -1;
+  tiles.forEach((t, j) => { if (j !== was) send(j, t.st && t.st.live ? 'live' : 'play'); });
+  paint();
 }
 function setAudio(i) {
   audio = i;
@@ -300,7 +323,7 @@ function drawBar() {
   if (!t.v.channel && /^(nba|nfl|cfb|mlb)$/.test(t.v.sport)) h += ic('box', 'stats', t.v.gameId === 'redzone' ? 'Scores around the NFL' : `Box score for ${t.v.title}`);
   h += '<span class="sep"></span>';
   h += ic('tap', 'tap', 'Tap the video (for players that need a click to start)');
-  h += ic('full', 'tv', 'Watch this game full screen');
+  h += ic('full', solo >= 0 ? 'grid' : 'fill', solo >= 0 ? 'Back to all games' : `Full screen: ${t.v.title}`, solo >= 0 ? 'on' : '');
   h += ic('remove', 'remove', 'Remove this game');
   h += ic('back', 'back', 'Back to games');
   $('chips').innerHTML = h;
@@ -349,11 +372,9 @@ $('chips').addEventListener('click', e => {
     const r = tileEl(sel).getBoundingClientRect();
     setTimeout(() => { if (bridge) bridge.call('tap', (r.left + r.width / 2) / innerWidth, (r.top + r.height / 2) / innerHeight); }, 300);
   }
-  else if (a === 'full') {
-    const s = t.srcs[t.si];
-    location.href = `player.html?g=${encodeURIComponent(JSON.stringify(t.v))}${s ? '&s=' + encodeURIComponent(s.id) : ''}`;
-  }
+  else if (a === 'full') { solo >= 0 ? exitSolo() : enterSolo(sel); }
   else if (a === 'remove') {
+    if (solo >= 0) exitSolo();
     const key = t.v.key;
     saveMulti(multi().filter(v => v.key !== key));
     tileEl(sel).remove(); tiles.splice(sel, 1);
@@ -390,7 +411,11 @@ window.addEventListener('keydown', e => {
   if (barOpen()) { clearTimeout(hideT); hideT = setTimeout(hideBar, 8000); return; }
   const k = e.key;
   if (k === 'Backspace' || k === 'Escape') return;
-  if (DIRS[k]) { if (!tiles.length || (!moveSel(DIRS[k]) && DIRS[k] === 'up')) showBar(); }
+  if (solo >= 0 && (k === 'ArrowLeft' || k === 'ArrowRight')) {
+    if (tiles.length > 1) enterSolo((solo + (k === 'ArrowRight' ? 1 : tiles.length - 1)) % tiles.length);
+  }
+  else if (solo >= 0 && DIRS[k]) showBar();
+  else if (DIRS[k]) { if (!tiles.length || (!moveSel(DIRS[k]) && DIRS[k] === 'up')) showBar(); }
   else if (k === 'Enter' || e.keyCode === 23) { if (tiles.length) setAudio(sel); }
   else showBar();
   e.preventDefault(); e.stopImmediatePropagation();
@@ -398,7 +423,11 @@ window.addEventListener('keydown', e => {
 window.__tvMenu = () => { barOpen() ? hideBar() : showBar(); return true; };
 window.__tvMedia = a => { if (tiles[audio]) send(audio, a === 'ff' ? 'seek' : a === 'rw' ? 'seek' : 'playpause', a === 'ff' ? 10 : a === 'rw' ? -10 : undefined); return true; };
 window.__tvBackHook = () => {
-  if (pickerOpen()) { closePicker(); return true; } if (barOpen() && tiles.length) { hideBar(); return true; } return false; };
+  if (pickerOpen()) { closePicker(); return true; }
+  if (barOpen() && tiles.length) { hideBar(); return true; }
+  if (solo >= 0) { exitSolo(); return true; }
+  return false;
+};
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen()) hideBar(); });
 
 /* ---------- adding and switching games ---------- */
