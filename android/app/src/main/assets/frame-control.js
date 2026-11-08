@@ -79,7 +79,8 @@
   var DVR = 900;          // how much already watched video is kept in memory
   var REACH = 5 * 3600;   // how far back a live list can be lengthened
   var rawFetch = window.fetch && window.fetch.bind(window);
-  var found = {};   // playlist address -> how many older pieces the server still has (or a promise of it)
+  var found = {};
+  var breaks = {};   // playlist address -> piece numbers seen with a break marker, kept after they scroll off the list   // playlist address -> how many older pieces the server still has (or a promise of it)
 
   // what the rewind finder saw, shown in the player bar so a stream that won't rewind can be explained
   var INFO = { lists: 0, why: 'none', back: 0, sample: '', code: '' };
@@ -137,17 +138,44 @@
     INFO.lists++;
     if (/#EXT-X-ENDLIST/.test(text)) { INFO.why = 'ended'; INFO.live = false; return null; }
     INFO.live = true;
-    if (/#EXT-X-DISCONTINUITY\s*$/m.test(text) || /#EXT-X-BYTERANGE/.test(text) || (text.match(/#EXT-X-KEY/g) || []).length > 1) { INFO.why = 'format'; return null; }
-    var m = text.match(/#EXT-X-MEDIA-SEQUENCE:\s*(\d+)/);
-    var seq = m ? +m[1] : 0, lines = text.split(/\r?\n/), segs = [];
+    INFO.tags = (text.match(/^#EXT[A-Z0-9-]*/mg) || []).filter(function (t, i, a) { return a.indexOf(t) === i; }).join(' ');
+    if (/#EXT-X-BYTERANGE/.test(text)) { INFO.why = 'byterange'; return null; }
+    var m = text.match(/#EXT-X-MEDIA-SEQUENCE:\s*(\d+)/), dm = text.match(/#EXT-X-DISCONTINUITY-SEQUENCE:\s*(\d+)/);
+    var seq = m ? +m[1] : 0, lines = text.split(/\r?\n/), segs = [], last = -1;
+    // each piece, with the tags written just for it (a break marker, its own key line)
     for (var i = 0; i < lines.length; i++) {
       if (lines[i].indexOf('#EXTINF:') !== 0) continue;
+      var seg = { at: i, dur: parseFloat(lines[i].slice(8)) || 0, disc: false, key: null };
+      for (var k = i - 1; k > last; k--) {
+        if (/^#EXT-X-DISCONTINUITY\s*$/.test(lines[k])) seg.disc = true;
+        else if (lines[k].indexOf('#EXT-X-KEY:') === 0 && !seg.key) seg.key = lines[k];
+      }
       for (var j = i + 1; j < lines.length; j++) {
         var l = lines[j].trim();
-        if (l && l[0] !== '#') { segs.push({ at: i, dur: parseFloat(lines[i].slice(8)) || 0, uri: l }); break; }
+        if (l && l[0] !== '#') { seg.uri = l; last = j; break; }
       }
+      if (seg.uri) segs.push(seg);
     }
     if (segs.length < 3) { INFO.why = 'short'; return null; }
+    // a key line on every piece is fine when it's the same key, with no IV, one IV, or an IV that counts with the pieces
+    var keyMode = null, keyed = segs.filter(function (x) { return x.key; });
+    if ((text.match(/^#EXT-X-KEY:/mg) || []).length > 1) {
+      var kAttr = function (line, n) { var r = line.match(new RegExp(n + '=("[^"]*"|[^,]*)')); return r ? r[1] : ''; };
+      var k0 = keyed[0] ? keyed[0].key : '';
+      var sameKey = keyed.length >= segs.length - 1 && keyed.every(function (x) { return kAttr(x.key, 'METHOD') === kAttr(k0, 'METHOD') && kAttr(x.key, 'URI') === kAttr(k0, 'URI'); });
+      if (!sameKey) { INFO.why = 'keys'; return null; }
+      var ivs = keyed.map(function (x) { return kAttr(x.key, 'IV'); });
+      if (ivs.some(function (v) { return v !== ivs[0]; })) {
+        var counts = typeof BigInt === 'function' && segs.every(function (x, n) {
+          try { return x.key && BigInt(kAttr(x.key, 'IV')) === BigInt(seq + n); } catch (e) { return false; }
+        });
+        if (!counts) { INFO.why = 'keys'; return null; }
+        keyMode = { line: segs[0].key, iv: kAttr(segs[0].key, 'IV') };
+      } else keyMode = { line: segs[0].key };
+    }
+    // break markers: on every piece (some restreams do this), or here and there
+    var discs = segs.filter(function (x) { return x.disc; }).length;
+    var discEach = discs >= segs.length - 1 && discs > 0;
     var pat = pattern(segs.map(function (x) { return x.uri; }));
     if (!pat) {
       INFO.why = 'names';
@@ -157,8 +185,13 @@
     var avg = segs.reduce(function (a2, x) { return a2 + x.dur; }, 0) / segs.length;
     if (!(avg > 0)) { INFO.why = 'format'; return null; }
     var most = Math.min(Math.floor(REACH / avg), Math.floor(pat.first / pat.step), m ? seq : Infinity);
-    if (most < 1) { INFO.why = 'server'; return null; }
-    return { text: text, url: url, seq: seq, hasSeq: !!m, lines: lines, segs: segs, pat: pat, avg: avg, most: most, key: String(url).split('?')[0] };
+    var key = String(url).split('?')[0], br = breaks[key] || (breaks[key] = {});
+    if (dm) segs.forEach(function (x, n) { if (x.disc) br[seq + n] = 1; });
+    // with a marker on every piece, the break count can't go below 0
+    if (discEach) most = Math.min(most, dm ? +dm[1] : 0);
+    if (most < 1) { INFO.why = discEach ? 'disc' : 'server'; return null; }
+    return { text: text, url: url, seq: seq, hasSeq: !!m, dseq: dm ? +dm[1] : null, discEach: discEach, keyMode: keyMode,
+             breaks: br, lines: lines, segs: segs, pat: pat, avg: avg, most: most, key: key };
   }
 
   function abs(P, back) { var u = P.pat.older(back); try { return u && new URL(u, P.url).href; } catch (e) { return null; } }
@@ -187,14 +220,29 @@
 
   function build(P, n) {
     n = Math.min(n, P.most);
-    var add = [];
-    for (var b = n; b >= 1; b--) { var u = P.pat.older(b); if (u) add.push('#EXTINF:' + P.avg.toFixed(3) + ',', u); }
-    if (!add.length) return P.text;
+    var add = [], count = 0, tags = 0;
+    for (var b = n; b >= 1; b--) {
+      var u = P.pat.older(b);
+      if (!u) continue;
+      // a break marker where the stream had one: on every piece, or one seen before it scrolled off the list
+      if (P.discEach || (P.dseq != null && P.breaks[P.seq - b] && tags < P.dseq)) { add.push('#EXT-X-DISCONTINUITY'); tags++; }
+      if (P.keyMode && P.keyMode.iv) {
+        var iv = (BigInt(P.seq) - BigInt(b)).toString(16);
+        while (iv.length < 32) iv = '0' + iv;
+        add.push(P.keyMode.line.replace(/IV=0x[0-9a-fA-F]+/, 'IV=0x' + iv));
+      } else if (P.keyMode) add.push(P.keyMode.line);
+      add.push('#EXTINF:' + P.avg.toFixed(3) + ',', u);
+      count++;
+    }
+    if (!count) return P.text;
+    // the older pieces go in just above the first piece's own tags
     var lines = P.lines, at = P.segs[0].at;
-    while (at > 0 && /^#EXT-X-PROGRAM-DATE-TIME/.test(lines[at - 1])) at--;
+    while (at > 0 && (/^#EXT-X-PROGRAM-DATE-TIME/.test(lines[at - 1]) || /^#EXT-X-DISCONTINUITY\s*$/.test(lines[at - 1]) ||
+                      (P.keyMode && lines[at - 1].indexOf('#EXT-X-KEY:') === 0))) at--;
     var out = lines.slice(0, at).concat(add, lines.slice(at)).join('\n');
-    var seq = '#EXT-X-MEDIA-SEQUENCE:' + (P.seq - add.length / 2);
-    out = P.hasSeq ? out.replace(/#EXT-X-MEDIA-SEQUENCE:\s*\d+/, seq) : out.replace('#EXTM3U', '#EXTM3U\n' + seq);
+    var sq = '#EXT-X-MEDIA-SEQUENCE:' + (P.seq - count);
+    out = P.hasSeq ? out.replace(/#EXT-X-MEDIA-SEQUENCE:\s*\d+/, sq) : out.replace('#EXTM3U', '#EXTM3U\n' + sq);
+    if (tags) out = out.replace(/#EXT-X-DISCONTINUITY-SEQUENCE:\s*\d+/, '#EXT-X-DISCONTINUITY-SEQUENCE:' + (P.dseq - tags));
     return out.replace('#EXTM3U', '#EXTM3U\n' + MARK);
   }
 

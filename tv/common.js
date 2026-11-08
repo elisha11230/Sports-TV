@@ -167,7 +167,10 @@ window.STV = (function () {
       names: 'the video parts aren\'t numbered in order: ' + (d.sample || ''),
       ended: 'stream list says it has ended',
       short: 'stream list too short to read',
-      format: 'stream list format not supported'
+      format: 'stream list format not supported (' + (d.tags || '') + ')',
+      byterange: 'the stream uses byte ranges of one file',
+      keys: 'the stream changes its encryption key as it goes',
+      disc: 'the stream marks a break on every part and has no break count'
     }[d.why] || (d.why || 'unknown');
     return 'Back to the start · only ' + t(from) + ' available: ' + why;
   }
