@@ -43,18 +43,9 @@
   }
   var hookTries = 0, hookT = setInterval(function () { hookLibs(); if (++hookTries > 150) clearInterval(hookT); }, 100);
   document.addEventListener('DOMContentLoaded', hookLibs);
-  // catch the libraries the moment they load, before the page makes its player
-  ['Hls', 'shaka'].forEach(function (name) {
-    try {
-      if (window[name]) return;
-      var val;
-      Object.defineProperty(window, name, {
-        configurable: true, enumerable: true,
-        get: function () { return val; },
-        set: function (x) { val = x; Promise.resolve().then(hookLibs); }
-      });
-    } catch (e) {}
-  });
+  // Note: no trap on window.Hls or window.shaka. Players check "Hls" in window and reuse whatever is
+  // there, so even an empty trap breaks them (JW Player then fails with error 104153). The polling above
+  // catches the libraries, and the download watching below lengthens lists for players it misses.
 
   function engineFor(v) {
     try {
