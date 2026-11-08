@@ -72,10 +72,11 @@
   /* ---------- a longer rewind and pause on live streams ----------
      Many live streams list only the last minute of video, even though their servers keep the older
      pieces for a while. When the pieces are numbered in order, each list is lengthened with the
-     older pieces the server still has (up to 15 minutes, found once by asking for a byte of each).
+     older pieces the server still has (up to 5 hours, so a whole game, found once by asking for a byte of a few).
      The player also keeps what it has downloaded (up to 15 minutes back), keeps downloading while
      paused (up to 5 minutes ahead), and doesn't jump forward to live after a pause. */
-  var DVR = 900;
+  var DVR = 900;          // how much already watched video is kept in memory
+  var REACH = 5 * 3600;   // how far back a live list can be lengthened
   var rawFetch = window.fetch && window.fetch.bind(window);
   var found = {};   // playlist address -> how many older pieces the server still has (or a promise of it)
 
@@ -138,25 +139,26 @@
       if (!pat) return Promise.resolve(text);
       var avg = segs.reduce(function (a, x) { return a + x.dur; }, 0) / segs.length;
       if (!(avg > 0)) return Promise.resolve(text);
-      var most = Math.min(Math.floor(DVR / avg), Math.floor(pat.first / pat.step), seq);
+      var most = Math.min(Math.floor(REACH / avg), Math.floor(pat.first / pat.step), seq);
       if (most < 1) return Promise.resolve(text);
       var key = String(url).split('?')[0];
       var abs = function (back) { try { return new URL(pat.older(back), url).href; } catch (e) { return null; } };
       if (found[key] == null) {
-        // the furthest piece back the server still has, by halving: about 8 quick requests, once
-        found[key] = has(abs(most)).then(function (ok) {
-          if (ok) return most;
-          return has(abs(1)).then(function (ok1) {
-            if (!ok1) return 0;
-            var lo = 1, hi = most;
-            var step = function () {
-              if (hi - lo <= 1) return lo;
-              var mid = (lo + hi) >> 1;
-              return has(abs(mid)).then(function (ok2) { if (ok2) lo = mid; else hi = mid; return step(); });
-            };
-            return step();
+        // the furthest piece back the server still has: 7 points checked at once, then the gap
+        // between the last one found and the first one missing, about 4 rounds for a whole game
+        var lo = 0, hi = most + 1;
+        var round = function () {
+          if (hi - lo <= 1) return lo;
+          var pts = [], gap = (hi - lo) / 8;
+          for (var q = 1; q <= 7; q++) { var x = Math.round(lo + gap * q); if (x > lo && x < hi && pts.indexOf(x) < 0) pts.push(x); }
+          if (!pts.length) pts.push(lo + 1);
+          return Promise.all(pts.map(function (x) { return has(abs(x)); })).then(function (oks) {
+            for (var r = 0; r < pts.length; r++) { if (oks[r]) lo = pts[r]; else { hi = pts[r]; break; } }
+            return round();
           });
-        }).then(function (n) { found[key] = n; return n; }, function () { found[key] = 0; return 0; });
+        };
+        found[key] = has(abs(most)).then(function (ok) { return ok ? most : round(); })
+          .then(function (n) { found[key] = n; return n; }, function () { found[key] = 0; return 0; });
       }
       return Promise.resolve(found[key]).then(function (n) {
         n = Math.min(n, most);
@@ -180,7 +182,7 @@
         var pl = g.obj;
         var conf = { streaming: { bufferBehind: DVR, bufferingGoal: 300 } };
         // DASH lists can be told to reach further back; HLS lists are lengthened below instead
-        if (how === 'load' && args && isDash(args[0], args[2])) conf.manifest = { availabilityWindowOverride: DVR };
+        if (how === 'load' && args && isDash(args[0], args[2])) conf.manifest = { availabilityWindowOverride: REACH };
         if (!g.tuned || conf.manifest) pl.configure(conf);
         var ne = pl.getNetworkingEngine && pl.getNetworkingEngine();
         if (ne && ne !== g.ne) {
@@ -357,6 +359,7 @@
         v.currentTime = Math.max(e[0], Math.min(e[1] - 1, t));
         break;
       }
+      case 'start': { var e3 = edges(v); v.currentTime = e3[0] + 2; var p4 = v.play(); if (p4 && p4.catch) p4.catch(function () {}); break; }
       case 'live': { var e2 = edges(v); v.currentTime = Math.max(e2[0], e2[1] - 3); var p3 = v.play(); if (p3 && p3.catch) p3.catch(function () {}); break; }
       // with a value these set the state; without one they flip it
       case 'mute': v.muted = typeof c.v === 'boolean' ? c.v : !v.muted; break;
