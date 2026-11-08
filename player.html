@@ -44,11 +44,15 @@ html.dev-phone .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padd
 html.dev-phone .chips::-webkit-scrollbar{display:none}
 html.dev-phone .ttl h1{font-size:17px}
 html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* LIVE button: red dot at live, gray when behind (as on YouTube) */
+.livedot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#8C97AA;margin-right:6px;vertical-align:1px}
+.livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081342"></script>
-<script src="tv/common.js?v=202611081342"></script>
-<script src="tv/boxscore.js?v=202611081342"></script>
+<script src="tv/tv-nav.js?v=202611081344"></script>
+<script src="tv/common.js?v=202611081344"></script>
+<script src="tv/boxscore.js?v=202611081344"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -190,7 +194,7 @@ function drawBar() {
     html += ic('pp', playing ? 'pause' : 'play', playing ? 'Pause' : 'Play')
       + ic('back10', 'back10', 'Back 10 seconds') + ic('fwd10', 'fwd10', 'Forward 10 seconds');
     if (s.type === 'embed') {
-      if (ctl && ctl.live) html += `<button class="chip" type="button" data-act="live" aria-label="Jump to live">● LIVE</button>`;
+      if (ctl && ctl.live) { const at = !(ctl.behind > 15); html += `<button class="chip" type="button" data-act="live" aria-label="${at ? 'At live' : 'Jump to live'}"><i class="livedot${at ? ' on' : ''}"></i>LIVE</button>`; }
       html += ic('mute', ctl && ctl.muted ? 'muted' : 'sound', ctl && ctl.muted ? 'Unmute' : 'Mute')
         + ic('fill', 'fill', 'Fill screen', ctl && ctl.filled ? 'on' : '');
       if (ctl && ctl.q && ctl.q.list.length) html += `<button class="chip" type="button" data-act="qual" aria-label="Quality">${esc(qualLabel(ctl.q))}</button>`;
@@ -259,7 +263,7 @@ window.addEventListener('message', e => {
   ctl = d.s;
   autoPlay(ctl);
   // redraw the buttons only when their labels change, so the remote keeps its place
-  const sig = c => c ? [c.has, c.paused, c.muted, c.live, c.filled, c.q ? c.q.cur + c.q.now + c.q.list.length : ''].join() : '';
+  const sig = c => c ? [c.has, c.paused, c.muted, c.live, c.live && c.behind > 15, c.filled, c.q ? c.q.cur + c.q.now + c.q.list.length : ''].join() : '';
   if (sig(was) !== sig(ctl) && barOpen()) {
     const f2 = nav() && nav().focused(), act = f2 && f2.dataset ? f2.dataset.act || f2.dataset.i : null;
     drawBar();

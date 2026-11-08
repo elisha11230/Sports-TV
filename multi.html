@@ -84,11 +84,15 @@ html.dev-phone .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padd
 html.dev-phone .chips::-webkit-scrollbar{display:none}
 html.dev-phone .ttl h1{font-size:17px}
 html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* LIVE button: red dot at live, gray when behind (as on YouTube) */
+.livedot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#8C97AA;margin-right:6px;vertical-align:1px}
+.livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081342"></script>
-<script src="tv/common.js?v=202611081342"></script>
-<script src="tv/boxscore.js?v=202611081342"></script>
+<script src="tv/tv-nav.js?v=202611081344"></script>
+<script src="tv/common.js?v=202611081344"></script>
+<script src="tv/boxscore.js?v=202611081344"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -269,6 +273,15 @@ window.addEventListener('message', e => {
     setTimeout(() => { const j = tiles.indexOf(t); if (j >= 0 && t.st && t.st.has && t.st.paused) { send(j, 'play'); setTimeout(() => { if (t.st && t.st.paused) tapTile(tiles.indexOf(t)); }, 1500); } }, 1500);
   }
   paint();
+  // the LIVE button's dot turns red or gray as the selected game reaches or falls behind live
+  if (i === sel && barOpen() && !qualOpen) {
+    const at = !!(d.s && d.s.live && !(d.s.behind > 15)) + ':' + !!(d.s && d.s.live);
+    if (at !== tiles[i].liveSig) {
+      tiles[i].liveSig = at;
+      const f = nav() && nav().focused();
+      redrawKeep(f && f.dataset ? f.dataset.a : 'live');
+    }
+  }
 });
 // check each game every 1.5 seconds until its video is found, then every 4.5 seconds,
 // staggered so the games aren't all asked at once
@@ -315,7 +328,7 @@ function drawBar() {
   if (n > 1) h += ic('layout', layout === 'grid' ? 'grid' : 'focus', layout === 'grid' ? 'Layout: even grid (switch to big + small)' : 'Layout: big + small (switch to even grid)');
   if (n > 1 && layout === 'focus' && sel !== big) h += ic('big', 'big', 'Make this game big');
   const st = t.st || {};
-  if (st.has && st.live) h += `<button class="chip" type="button" data-a="live" aria-label="Jump ${esc(t.v.title)} to live">● LIVE${st.behind > 15 ? ` <span style="opacity:.7;font-weight:500">−${behind(st.behind)}</span>` : ''}</button>`;
+  if (st.has && st.live) { const at = !(st.behind > 15); h += `<button class="chip" type="button" data-a="live" aria-label="${at ? `${esc(t.v.title)} is at live` : `Jump ${esc(t.v.title)} to live`}"><i class="livedot${at ? ' on' : ''}"></i>LIVE${at ? '' : ` <span style="opacity:.7;font-weight:500">−${behind(st.behind)}</span>`}</button>`; }
   if (n > 1 && tiles.some(x => x.st && x.st.has && x.st.live)) h += `<button class="chip" type="button" data-a="liveall" aria-label="Jump every game to live">All live</button>`;
   h += ic('clean', 'fill', 'Fill tiles', clean ? 'on' : '');
   if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual" aria-label="Quality for ${esc(t.v.title)}">${esc(qualLabel(q))}</button>`;
