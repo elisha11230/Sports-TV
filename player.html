@@ -57,6 +57,34 @@ const nav = () => window.__tvNav;
 const bridge = STV.bridge;
 let sources = [], cur = -1, hideT = null, hls = null;
 let KEY = null, ctl = null, pollT = null, qualOpen = false;
+// autoplay: press play once the video is found; tap the player once if it still won't start
+let auto = null;
+function startAuto() {
+  clearTimeout(auto && auto.t);
+  auto = { started: false, tapped: false, t: null };
+  // no video after a few seconds: the player probably needs its own play button clicked
+  auto.t = setTimeout(() => { if (!(ctl && ctl.has)) autoTap(); }, 5000);
+}
+function autoTap() {
+  if (!auto || auto.tapped || !bridge) return;
+  auto.tapped = true;
+  const was = barOpen(); if (was) hideBar();
+  bridge.call('tap', 0.5, 0.55);
+  setTimeout(() => send('status'), 1200);
+}
+function autoPlay(st) {
+  if (!auto || auto.started || !st || !st.has) return;
+  auto.started = true;
+  if (st.paused) send('play');
+  if (st.muted) send('mute', false);
+  // still paused? try once more, then click the player itself
+  setTimeout(() => {
+    if (ctl && ctl.has && ctl.paused) {
+      send('play');
+      setTimeout(() => { if (ctl && ctl.has && ctl.paused) autoTap(); }, 1500);
+    }
+  }, 1500);
+}
 // the quality chip's label: "Auto (720p)" or the chosen one
 function qualLabel(q) {
   if (!q) return '';
@@ -123,8 +151,9 @@ async function play(i) {
     f.allowFullscreen = true;
     $('stage').appendChild(f);
     ctl = null;
-    f.addEventListener('load', () => setTimeout(() => send('status'), 800));
+    f.addEventListener('load', () => { setTimeout(() => send('status'), 600); setTimeout(() => send('status'), 1500); });
     startPoll();
+    if (KEY) startAuto();
   }
 }
 function drawBar() {
@@ -199,13 +228,22 @@ function send(a, v) {
   try { f.contentWindow.postMessage({ stv: 'cmd', key: KEY, a, v }, '*'); } catch (e) { return false; }
   return true;
 }
-function startPoll() { clearInterval(pollT); pollT = setInterval(() => { if (!document.hidden) send('status'); }, 2500); }
+function startPoll() {
+  clearInterval(pollT);
+  let n = 0;
+  pollT = setInterval(() => {
+    if (document.hidden) return;
+    // every second while looking for the video, then every 2.5 seconds
+    if ((ctl && ctl.has) ? (++n % 3 === 0) : true) send('status');
+  }, 900);
+}
 window.addEventListener('message', e => {
   const d = e.data, f = document.querySelector('#stage iframe');
   if (!d || d.stv !== 'status' || !KEY || d.key !== KEY || !f || e.source !== f.contentWindow) return;
   if (!d.s || !d.s.has) { if (!ctl) return; }
   const was = ctl;
   ctl = d.s;
+  autoPlay(ctl);
   // redraw the buttons only when their labels change, so the remote keeps its place
   const sig = c => c ? [c.has, c.paused, c.muted, c.live, c.filled, c.q ? c.q.cur + c.q.now + c.q.list.length : ''].join() : '';
   if (sig(was) !== sig(ctl) && barOpen()) {

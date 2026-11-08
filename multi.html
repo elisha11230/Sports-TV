@@ -117,8 +117,21 @@ function build() {
 }
 function hookFrame(i) {
   const f = tileEl(i).querySelector('iframe');
-  tiles[i].st = null;
-  if (f) f.addEventListener('load', () => setTimeout(() => send(i, 'status'), 800));
+  const t = tiles[i];
+  t.st = null; t.tapped = false;
+  if (f) f.addEventListener('load', () => { setTimeout(() => send(tiles.indexOf(t), 'status'), 600); setTimeout(() => send(tiles.indexOf(t), 'status'), 1500); });
+  // a player that shows no video after a few seconds probably wants its play button clicked
+  clearTimeout(t.tapT);
+  t.tapT = setTimeout(() => { const j = tiles.indexOf(t); if (j >= 0 && !(t.st && t.st.has)) tapTile(j); }, 6000);
+}
+function tapTile(i) {
+  const t = tiles[i];
+  if (!t || t.tapped || !bridge) return;
+  t.tapped = true;
+  if (barOpen()) hideBar();
+  const r = tileEl(i).getBoundingClientRect();
+  bridge.call('tap', (r.left + r.width / 2) / innerWidth, (r.top + r.height * 0.55) / innerHeight);
+  setTimeout(() => send(i, 'status'), 1200);
 }
 function paint() {
   const n = tiles.length;
@@ -157,10 +170,18 @@ window.addEventListener('message', e => {
     send(i, 'mute', i !== audio);
     if (clean) send(i, 'fill', true);
     send(i, 'play');
+    const t = tiles[i];
+    setTimeout(() => { const j = tiles.indexOf(t); if (j >= 0 && t.st && t.st.has && t.st.paused) { send(j, 'play'); setTimeout(() => { if (t.st && t.st.paused) tapTile(tiles.indexOf(t)); }, 1500); } }, 1500);
   }
   paint();
 });
-setInterval(() => { if (!document.hidden) tiles.forEach((t, i) => send(i, 'status')); }, 3000);
+// check each game every second until its video is found, then every 3 seconds
+let tick = 0;
+setInterval(() => {
+  if (document.hidden) return;
+  tick++;
+  tiles.forEach((t, i) => { if (!(t.st && t.st.has) || tick % 3 === 0) send(i, 'status'); });
+}, 1000);
 
 /* ---------- options bar ---------- */
 const barOpen = () => !$('bar').classList.contains('off');

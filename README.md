@@ -66,7 +66,7 @@ Add them on the TV (Settings, Stream sources) or in `sources.json`:
 - Codes filled in per game: `{date}` (2026-11-08, New York date), `{yyyymmdd}`, `{gameId}` (ESPN), `{away}` `{home}` (lower case team codes), `{AWAY}` `{HOME}`, `{awayNick}` `{homeNick}` (knicks, trail-blazers), `{awayName}` `{homeName}` (new-york-knicks).
 - `codes` (optional) renames teams for one source: `"codes": { "NY": "nyk", "GS": "gsw" }`.
 
-In the player, "Tap player" taps the middle of the screen for players that need a click to start, and "Open full page" loads a player site directly if it doesn't allow being shown inside another page.
+Streams start on their own: once the player finds the video it presses play and turns the sound on, and if a player still won't start (some want their own play button clicked) the app taps the middle of it once. In the player, "Tap player" taps the middle of the screen for players that need a click to start, and "Open full page" loads a player site directly if it doesn't allow being shown inside another page.
 
 ### Remote control of embedded players (Fire TV app)
 The app adds a small script (`android/app/src/main/assets/frame-control.js`) inside every embedded player. It finds the player's `<video>` (Shaka Player and most web players use one) and takes commands from the player page: play/pause, skip 10 seconds, go live, mute, fill screen and quality. Quality works when the embed uses Shaka Player or hls.js: the script finds the player behind the video and lists its qualities (Auto, 1080p, 720p…). With the controls bar closed, Select plays or pauses and left/right skip. Commands carry a key the app makes at each launch, so other pages can't drive it.
