@@ -11,17 +11,26 @@ html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:Barl
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 #stage{position:fixed;inset:0;background:#000}
 #stage iframe,#stage video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
-#bar{position:fixed;left:0;right:0;top:0;z-index:10;padding:18px 28px 40px;background:linear-gradient(rgba(0,0,0,.85),rgba(0,0,0,.55) 70%,transparent);
-  display:flex;flex-direction:column;gap:12px;transition:opacity .25s}
+/* compact controls: icon buttons, small text chips; the highlighted button's name shows under them */
+#bar{position:fixed;left:0;right:0;top:0;z-index:10;padding:12px 22px 26px;background:linear-gradient(rgba(0,0,0,.88),rgba(0,0,0,.55) 72%,transparent);
+  display:flex;flex-direction:column;gap:8px;transition:opacity .25s}
+.ic{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid rgba(255,255,255,.2);background:rgba(20,28,44,.85);color:var(--ink)}
+.ic svg{width:22px;height:22px}
+.ic:hover{background:rgba(40,54,82,.96)}
+.ic.on,.ic.on:hover,.chip.on:hover{background:var(--ink);color:#0A111E;border-color:var(--ink)}
+.ic.live{color:#FF5A63}
+.sep{width:1px;height:24px;background:rgba(255,255,255,.18);margin:0 2px;align-self:center;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 #bar.off{opacity:0;pointer-events:none;visibility:hidden}
 .ttl{display:flex;align-items:baseline;gap:14px}
-.ttl h1{margin:0;font-size:26px;font-weight:700;letter-spacing:.02em}
-.ttl span{color:var(--ink2);font-size:15px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{padding:8px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,28,44,.85);font-weight:600;font-size:16px}
+.ttl h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.02em}
+.ttl span{color:var(--ink2);font-size:13px}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(20,28,44,.85);font-weight:600;font-size:14px;line-height:26px}
 .chip:hover{background:rgba(40,54,82,.95)}
 .chip.on{background:var(--ink);color:#0A111E;border-color:var(--ink)}
-.hint{color:var(--ink2);font-size:13px}
+.hint{color:var(--ink2);font-size:13px;min-height:17px}
+.hint b{color:var(--ink);font-weight:600}
 #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
 #msg[hidden]{display:none}
 </style>
@@ -130,33 +139,53 @@ function drawBar() {
   }
   $('ttl').textContent = G.title || 'Watch';
   $('srcname').textContent = s ? s.name : '';
-  let html = sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}">${esc(x.name)}</button>`).join('');
-  if (s && s.type === 'embed') {
-    if (KEY) html += `<button class="chip" type="button" data-act="pp">${ctl && ctl.has && !ctl.paused ? '❚❚ Pause' : '▶ Play'}</button>`
-      + `<button class="chip" type="button" data-act="back10">⟲ 10s</button><button class="chip" type="button" data-act="fwd10">10s ⟳</button>`
-      + (ctl && ctl.live ? `<button class="chip" type="button" data-act="live">● Go live</button>` : '')
-      + `<button class="chip" type="button" data-act="mute">${ctl && ctl.muted ? 'Unmute' : 'Mute'}</button>`
-      + `<button class="chip${ctl && ctl.filled ? ' on' : ''}" type="button" data-act="fill">Fill screen</button>`
-      + (ctl && ctl.q && ctl.q.list.length ? `<button class="chip" type="button" data-act="qual">Quality: ${esc(qualLabel(ctl.q))}</button>` : '');
-    html += `<button class="chip" type="button" data-act="tap">Tap player</button><button class="chip" type="button" data-act="full">Open full page</button>`;
+  const ic = (act, name, label, cls) => `<button class="ic${cls ? ' ' + cls : ''}" type="button" data-act="${act}" aria-label="${esc(label)}">${STV.icon(name)}</button>`;
+  const playing = (s && s.type === 'video') ? (document.querySelector('video') && !document.querySelector('video').paused) : (ctl && ctl.has && !ctl.paused);
+  let html = '';
+  if (s && (s.type === 'video' || (s.type === 'embed' && KEY))) {
+    html += ic('pp', playing ? 'pause' : 'play', playing ? 'Pause' : 'Play')
+      + ic('back10', 'back10', 'Back 10 seconds') + ic('fwd10', 'fwd10', 'Forward 10 seconds');
+    if (s.type === 'embed') {
+      if (ctl && ctl.live) html += `<button class="chip" type="button" data-act="live" aria-label="Jump to live">● LIVE</button>`;
+      html += ic('mute', ctl && ctl.muted ? 'muted' : 'sound', ctl && ctl.muted ? 'Unmute' : 'Mute')
+        + ic('fill', 'fill', 'Fill screen', ctl && ctl.filled ? 'on' : '');
+      if (ctl && ctl.q && ctl.q.list.length) html += `<button class="chip" type="button" data-act="qual" aria-label="Quality">${esc(qualLabel(ctl.q))}</button>`;
+    }
+    html += '<span class="sep"></span>';
   }
-  if (s && s.type === 'video') html += `<button class="chip" type="button" data-act="pp">Play / pause</button>`;
-  html += `<button class="chip" type="button" data-act="back">Back to games</button>`;
+  if (sources.length > 1) html += sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}" aria-label="Source: ${esc(x.name)}">${esc(x.name)}</button>`).join('') + '<span class="sep"></span>';
+  if (s && s.type === 'embed') html += ic('tap', 'tap', 'Tap the player (for players that need a click to start)') + ic('full', 'open', 'Open the full page');
+  html += ic('back', 'back', 'Back to games');
   $('chips').innerHTML = html;
-  $('hint').textContent = hintText(s);
+  setHint();
 }
+// the line under the buttons: what the highlighted button does, then the player's status
+// redraw the bar (play becomes pause and so on) without losing the remote's place
+function drawKeep(a) {
+  if (!barOpen()) return;
+  drawBar();
+  const el = $('chips').querySelector(`[data-act="${a}"]`);
+  if (el && nav()) nav().focus(el, { noScroll: true });
+}
+function setHint() {
+  const f = nav() && nav().focused();
+  const label = f && $('chips').contains(f) ? f.getAttribute('aria-label') || f.textContent.trim() : '';
+  const st = statusLine(sources[cur]);
+  $('hint').innerHTML = (label ? `<b>${esc(label)}</b>` : '') + (label && st ? ' · ' : '') + esc(st);
+}
+$('chips').addEventListener('focusin', () => setTimeout(setHint, 0));
 function fmt(t) {
   t = Math.max(0, Math.floor(t || 0));
   const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, x = t % 60;
   return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
 }
-function hintText(s) {
+function statusLine(s) {
   if (!s) return '';
-  if (s.type === 'video') return 'Select plays or pauses · Left and right skip 10 seconds · Back closes this bar';
-  if (!KEY) return 'Remote control of this player works in the Fire TV app · Back closes this bar';
-  if (!ctl || !ctl.has) return 'Looking for the video… if it needs a click to start, use Tap player · Back closes this bar';
+  if (s.type === 'video') { const v = document.querySelector('video'); return v ? (v.paused ? 'Paused' : 'Playing') : ''; }
+  if (!KEY) return 'Remote control works in the Fire TV app';
+  if (!ctl || !ctl.has) return 'Looking for the video…';
   const where = ctl.live ? (ctl.behind > 15 ? `${fmt(ctl.behind)} behind live` : 'Live') : `${fmt(ctl.t)} / ${fmt(ctl.d)}`;
-  return `Remote connected · ${ctl.paused ? 'Paused' : 'Playing'} · ${where} · With this bar closed: Select plays or pauses, left and right skip 10 seconds`;
+  return `${ctl.paused ? 'Paused' : 'Playing'} · ${where}`;
 }
 
 /* ---------- commands to an embedded player ----------
@@ -181,7 +210,7 @@ window.addEventListener('message', e => {
     const f2 = nav() && nav().focused(), act = f2 && f2.dataset ? f2.dataset.act || f2.dataset.i : null;
     drawBar();
     if (act != null) { const el = $('chips').querySelector(`[data-act="${act}"],[data-i="${act}"]`); if (el && nav()) nav().focus(el, { noScroll: true }); }
-  } else $('hint').textContent = hintText(sources[cur]);
+  } else setHint();
 });
 function control(a) {
   const s = sources[cur]; if (!s) return;
@@ -212,7 +241,7 @@ $('chips').addEventListener('click', e => {
   }
   const a = b.dataset.act;
   if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
-  else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur] && sources[cur].type === 'embed') { control(a); showBar(); }
+  else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur]) { control(a); showBar(); setTimeout(drawKeep, 400, a); }
   else if (a === 'tap') { hideBar(); setTimeout(() => { if (bridge) bridge.call('tap', 0.5, 0.5); else nav() && nav().toast('Click the player with a mouse here'); }, 350); }
   else if (a === 'full') {
     const s = sources[cur]; if (!s) return;

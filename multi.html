@@ -33,17 +33,26 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--ink2);font-size:15px}
 
 /* options bar */
-#bar{position:fixed;left:0;right:0;top:0;z-index:10;padding:16px 26px 36px;background:linear-gradient(rgba(0,0,0,.9),rgba(0,0,0,.6) 70%,transparent);
-  display:flex;flex-direction:column;gap:10px;transition:opacity .25s}
+/* compact controls: icon buttons, small text chips; the highlighted button's name shows under them */
+#bar{position:fixed;left:0;right:0;top:0;z-index:10;padding:12px 22px 26px;background:linear-gradient(rgba(0,0,0,.88),rgba(0,0,0,.55) 72%,transparent);
+  display:flex;flex-direction:column;gap:8px;transition:opacity .25s}
+.ic{width:40px;height:40px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;
+  border:1px solid rgba(255,255,255,.2);background:rgba(20,28,44,.85);color:var(--ink)}
+.ic svg{width:22px;height:22px}
+.ic:hover{background:rgba(40,54,82,.96)}
+.ic.on,.ic.on:hover,.chip.on:hover{background:var(--ink);color:#0A111E;border-color:var(--ink)}
+.ic.live{color:#FF5A63}
+.sep{width:1px;height:24px;background:rgba(255,255,255,.18);margin:0 2px;align-self:center;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 #bar.off{opacity:0;pointer-events:none;visibility:hidden}
 .ttl{display:flex;align-items:baseline;gap:14px}
-.ttl h1{margin:0;font-size:24px;font-weight:700}
-.ttl span{color:var(--ink2);font-size:15px}
-.chips{display:flex;flex-wrap:wrap;gap:8px}
-.chip{padding:8px 15px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,28,44,.88);font-weight:600;font-size:15px}
+.ttl h1{margin:0;font-size:20px;font-weight:700}
+.ttl span{color:var(--ink2);font-size:13px}
+.chip{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(20,28,44,.88);font-weight:600;font-size:14px;line-height:26px}
 .chip:hover{background:rgba(40,54,82,.96)}
 .chip.on{background:var(--ink);color:#0A111E;border-color:var(--ink)}
-.hint{color:var(--ink2);font-size:13px}
+.hint{color:var(--ink2);font-size:13px;min-height:17px}
+.hint b{color:var(--ink);font-weight:600}
 #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
 #msg[hidden]{display:none}
 </style>
@@ -177,22 +186,29 @@ function drawBar() {
     $('hint').textContent = `Quality for ${t.v.title} · Auto lets the player choose`;
     return;
   }
+  const ic = (a, name, label, cls) => `<button class="ic${cls ? ' ' + cls : ''}" type="button" data-a="${a}" aria-label="${esc(label)}">${STV.icon(name)}</button>`;
   let h = '';
-  if (n > 1 && sel !== audio) h += `<button class="chip" type="button" data-a="audio">🔊 Sound to ${esc(t.v.title)}</button>`;
-  if (n > 1) h += `<button class="chip" type="button" data-a="layout">Layout: ${layout === 'grid' ? 'Even grid' : 'Big + small'}</button>`;
-  if (n > 1 && layout === 'focus' && sel !== big) h += `<button class="chip" type="button" data-a="big">Make this one big</button>`;
-  h += `<button class="chip${clean ? ' on' : ''}" type="button" data-a="clean">Fill tiles</button>`;
-  if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual">Quality: ${esc(qualLabel(q))}</button>`;
-  if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src">Source: ${esc(srcs[t.si].name)}</button>`;
-  h += `<button class="chip" type="button" data-a="tap">Tap video</button>`;
-  h += `<button class="chip" type="button" data-a="full">Full screen</button>`;
-  h += `<button class="chip" type="button" data-a="remove">Remove game</button>`;
-  h += `<button class="chip" type="button" data-a="back">Back to games</button>`;
+  if (n > 1 && sel !== audio) h += ic('audio', 'sound', `Sound to ${t.v.title}`);
+  if (n > 1) h += ic('layout', layout === 'grid' ? 'grid' : 'focus', layout === 'grid' ? 'Layout: even grid (switch to big + small)' : 'Layout: big + small (switch to even grid)');
+  if (n > 1 && layout === 'focus' && sel !== big) h += ic('big', 'big', 'Make this game big');
+  h += ic('clean', 'fill', 'Fill tiles', clean ? 'on' : '');
+  if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual" aria-label="Quality for ${esc(t.v.title)}">${esc(qualLabel(q))}</button>`;
+  if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src" aria-label="Switch source">${esc(srcs[t.si].name)}</button>`;
+  h += '<span class="sep"></span>';
+  h += ic('tap', 'tap', 'Tap the video (for players that need a click to start)');
+  h += ic('full', 'tv', 'Watch this game full screen');
+  h += ic('remove', 'remove', 'Remove this game');
+  h += ic('back', 'back', 'Back to games');
   $('chips').innerHTML = h;
-  $('hint').textContent = KEY
-    ? 'Bar closed: arrows move to a game and its sound · Menu (☰) opens this bar'
-    : 'Sound switching and controls work in the Fire TV app · Menu or Backspace closes this bar';
+  setHint();
 }
+function setHint() {
+  const f = nav() && nav().focused();
+  const label = f && $('chips').contains(f) ? f.getAttribute('aria-label') || f.textContent.trim() : '';
+  const tip = KEY ? 'Bar closed: arrows move to a game and its sound · Menu (☰) opens this bar' : 'Sound switching works in the Fire TV app';
+  $('hint').innerHTML = label ? `<b>${esc(label)}</b>` : esc(tip);
+}
+$('chips').addEventListener('focusin', () => setTimeout(setHint, 0));
 function redrawKeep(a) {
   drawBar();
   const el = $('chips').querySelector(`[data-a="${a}"]`) || $('chips').querySelector('button');

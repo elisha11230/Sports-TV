@@ -92,11 +92,33 @@ window.STV = (function () {
     catch (e) { return d.toISOString().slice(0, 10); }
   };
 
+  /* ---------- small line icons for the player bars ---------- */
+  var ICONS = {
+    play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none"/>',
+    pause: '<rect x="6.5" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>',
+    back10: '<path d="M11 4 7 7.5l4 3.5"/><path d="M7.5 7.5H13a6.5 6.5 0 1 1-6.5 6.5"/><text x="13" y="17.3" font-size="6.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text>',
+    fwd10: '<path d="M13 4l4 3.5-4 3.5"/><path d="M16.5 7.5H11a6.5 6.5 0 1 0 6.5 6.5"/><text x="11" y="17.3" font-size="6.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text>',
+    sound: '<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
+    muted: '<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/>',
+    fill: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    tap: '<circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="7.5"/>',
+    open: '<path d="M14 4h6v6M20 4l-8.5 8.5"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',
+    back: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
+    grid: '<rect x="4" y="4" width="7" height="7" rx="1.2"/><rect x="13" y="4" width="7" height="7" rx="1.2"/><rect x="4" y="13" width="7" height="7" rx="1.2"/><rect x="13" y="13" width="7" height="7" rx="1.2"/>',
+    focus: '<rect x="3.5" y="5" width="11" height="14" rx="1.2"/><rect x="16.5" y="5" width="4" height="6" rx="1"/><rect x="16.5" y="13" width="4" height="6" rx="1"/>',
+    big: '<rect x="3.5" y="5" width="11" height="14" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="16.5" y="5" width="4" height="6" rx="1"/><rect x="16.5" y="13" width="4" height="6" rx="1"/>',
+    tv: '<rect x="3.5" y="5" width="17" height="11.5" rx="1.5"/><path d="M9 20h6"/>',
+    remove: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'
+  };
+  function icon(name) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
+  }
+
   applyZoom(settings().textZoom);
 
   return {
     store: store, settings: settings, saveSettings: saveSettings,
     localSources: localSources, saveLocalSources: saveLocalSources, repoSources: repoSources,
-    sourcesFor: sourcesFor, fill: fill, slug: slug, etDay: etDay, bridge: bridge
+    sourcesFor: sourcesFor, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon
   };
 })();
