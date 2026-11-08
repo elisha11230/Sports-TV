@@ -40,11 +40,15 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 html.dev-phone #fab{display:flex;align-items:center;justify-content:center}
 html.dev-phone #bar{padding:10px 12px 22px}
 html.dev-phone .ic{width:38px;height:38px}
+html.dev-phone .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+html.dev-phone .chips::-webkit-scrollbar{display:none}
+html.dev-phone .ttl h1{font-size:17px}
+html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081333"></script>
-<script src="tv/common.js?v=202611081333"></script>
-<script src="tv/boxscore.js?v=202611081333"></script>
+<script src="tv/tv-nav.js?v=202611081338"></script>
+<script src="tv/common.js?v=202611081338"></script>
+<script src="tv/boxscore.js?v=202611081338"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -83,6 +87,8 @@ function autoTap() {
 function autoPlay(st) {
   if (!auto || auto.started || !st || !st.has) return;
   auto.started = true;
+  // on a phone the stream site's page would crop the video; fill the screen with it
+  if (STV.phone && !st.filled) send('fill', true);
   if (st.paused) send('play');
   if (st.muted) send('mute', false);
   // still paused? try once more, then click the player itself

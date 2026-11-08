@@ -102,7 +102,7 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
 
 /* ---------- phones ---------- */
 html.dev-phone body{padding:12px 12px 30px}
-html.dev-phone .top{flex-wrap:wrap;gap:8px;margin-bottom:12px}
+html.dev-phone .top{gap:8px;margin-bottom:12px}
 html.dev-phone .top .sp{display:none}
 html.dev-phone .brand{font-size:24px;flex:1}
 html.dev-phone .clock{display:none}
@@ -110,15 +110,28 @@ html.dev-phone .iconbtn{padding:7px 11px;font-size:14px}
 html.dev-phone .bar h3{display:none}
 html.dev-phone .datebox{margin-left:0;width:100%;justify-content:space-between}
 html.dev-phone .datebox .day{min-width:0;flex:1}
-html.dev-phone .games{grid-template-columns:1fr 1fr;gap:8px}
+html.dev-phone .games{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+html.dev-phone .game{min-height:0;padding:9px 10px;gap:3px;border-radius:12px}
+html.dev-phone .gtop{font-size:11px}
+html.dev-phone .trow{gap:7px}
+html.dev-phone .trow img{width:22px;height:22px}
+html.dev-phone .trow b{font-size:17px;min-width:40px}
+html.dev-phone .trow small{font-size:11px}
+html.dev-phone .trow .sc{font-size:19px;min-width:30px}
+html.dev-phone .trow .sc.hid{font-size:14px}
+html.dev-phone .game.rz h4,html.dev-phone .game.ch h4{font-size:19px}
+html.dev-phone .game.rz p,html.dev-phone .game.ch p{font-size:11px}
+html.dev-phone .gnote{display:none}
+html.dev-phone .sport-h{font-size:15px;margin:4px 0 -2px}
+html.dev-phone .chip{padding:6px 12px;font-size:14px}
 html.dev-phone .layer{padding:10px}
 html.dev-phone .sheet{padding:16px}
-@media (max-width:560px){ html.dev-phone .games{grid-template-columns:1fr} }
+
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081333"></script>
-<script src="tv/boxscore.js?v=202611081333"></script>
-<script src="tv/common.js?v=202611081333"></script>
+<script src="tv/tv-nav.js?v=202611081338"></script>
+<script src="tv/boxscore.js?v=202611081338"></script>
+<script src="tv/common.js?v=202611081338"></script>
 </head>
 <body>
 <header class="top">
@@ -317,7 +330,8 @@ function renderBar() {
   $('day').textContent = sel === t ? 'Today' : sel === ymd(addDays(today(), -1)) ? 'Yesterday' : sel === ymd(addDays(today(), 1)) ? 'Tomorrow'
     : state.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   $('today').hidden = sel === t;
-  $('spoilbtn').textContent = S.spoilers ? '◌ Scores hidden' : '◉ Scores shown';
+  $('spoilbtn').textContent = STV.phone ? (S.spoilers ? '◌ Scores' : '◉ Scores') : (S.spoilers ? '◌ Scores hidden' : '◉ Scores shown');
+  if (STV.phone) $('setbtn').textContent = '⚙';
   const mv = multi();
   $('mvbtn').hidden = !mv.length;
   $('mvbtn').textContent = `▦ Multiview (${mv.length})`;
