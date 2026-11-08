@@ -90,10 +90,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081523"></script>
-<script src="tv/common.js?v=202611081523"></script>
-<script src="tv/boxscore.js?v=202611081523"></script>
-<script src="tv/alerts.js?v=202611081523"></script>
+<script src="tv/tv-nav.js?v=202611081529"></script>
+<script src="tv/common.js?v=202611081529"></script>
+<script src="tv/boxscore.js?v=202611081529"></script>
+<script src="tv/alerts.js?v=202611081529"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -563,6 +563,8 @@ ALERTS.start({
   const want = sessionStorage.getItem('stv.mvSound'); sessionStorage.removeItem('stv.mvSound');
   const wi = want ? tiles.findIndex(t => t.v.key === want) : -1;
   if (wi > 0) { sel = wi; setTimeout(() => setAudio(wi), 1500); }
+  // came from a game's "Add to multiview": pick the next game right away
+  if (location.hash === '#add') { history.replaceState(null, '', location.pathname); if (tiles.length < 4) { setTimeout(() => openPicker(-1), 800); return; } }
   showBar(6000);
   nav() && nav().toast('Arrows move to a game and its sound · Menu for options', 4000);
 })();

@@ -50,10 +50,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081523"></script>
-<script src="tv/common.js?v=202611081523"></script>
-<script src="tv/boxscore.js?v=202611081523"></script>
-<script src="tv/alerts.js?v=202611081523"></script>
+<script src="tv/tv-nav.js?v=202611081529"></script>
+<script src="tv/common.js?v=202611081529"></script>
+<script src="tv/boxscore.js?v=202611081529"></script>
+<script src="tv/alerts.js?v=202611081529"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -202,6 +202,8 @@ function drawBar() {
     }
     html += '<span class="sep"></span>';
   }
+  // a live game (not a replay or a YouTube video) can move into multiview with others
+  if (G.key && !G.replay && !q.get('yt')) html += ic('multi', 'add', 'Add to multiview (pick another game next)');
   if (G.gameId && !G.channel && /^(nba|nfl|cfb|mlb)$/.test(G.sport)) html += ic('box', 'stats', G.gameId === 'redzone' ? 'Scores around the NFL (or press Down)' : 'Box score (or press Down)', BOX.isOpen() ? 'on' : '') + '<span class="sep"></span>';
   if (sources.length > 1) html += sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}" aria-label="Source: ${esc(x.name)}">${esc(x.name)}</button>`).join('') + '<span class="sep"></span>';
   if (s && s.type === 'embed') html += ic('tap', 'tap', 'Tap the player (for players that need a click to start)') + ic('full', 'open', 'Open the full page');
@@ -300,6 +302,7 @@ $('chips').addEventListener('click', e => {
   }
   const a = b.dataset.act;
   if (a === 'box') { hideBar(); BOX.toggle(G); return; }
+  if (a === 'multi') { toMultiview(null); return; }
   if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
   else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur]) { control(a); showBar(); setTimeout(drawKeep, 400, a); }
   else if (a === 'tap') { hideBar(); setTimeout(() => { if (bridge) bridge.call('tap', 0.5, 0.5); else nav() && nav().toast('Click the player with a mouse here'); }, 350); }
@@ -363,19 +366,22 @@ if (STV.phone && STV.bridge) {
 
 /* ---------- alerts: another game gets close, goes to overtime, or reaches the red zone ----------
    Acting on one opens multiview with this game and that one, with the sound on the new game. */
+// opens multiview with this game in it; with another game (v) added too and given the sound,
+// or with no other game, the game picker opens there to add one
+function toMultiview(v) {
+  let l = [];
+  try { l = JSON.parse(sessionStorage.getItem('stv.multi') || '[]'); } catch (e) {}
+  const live = G.key && !G.replay && !q.get('yt') ? Object.assign({}, G) : null;
+  if (live && !l.some(x => x.key === live.key)) { if (l.length >= 4) l.pop(); l.unshift(live); }
+  if (v && !l.some(x => x.key === v.key)) { if (l.length >= 4) l.splice(live ? 1 : 0, 1); l.push(v); }
+  sessionStorage.setItem('stv.multi', JSON.stringify(l.slice(0, 4)));
+  sessionStorage.setItem('stv.mvSound', v ? v.key : (live ? live.key : ''));
+  location.href = 'multi.html' + (!v && l.length < 4 ? '#add' : '');
+}
 ALERTS.start({
   watching: () => [G.key],
   actLabel: () => 'Watch in multiview',
-  act: v => {
-    let l = [];
-    try { l = JSON.parse(sessionStorage.getItem('stv.multi') || '[]'); } catch (e) {}
-    const live = G.key && !G.replay && !q.get('yt') ? Object.assign({}, G) : null;
-    if (live && !l.some(x => x.key === live.key)) l.unshift(live);
-    if (!l.some(x => x.key === v.key)) { if (l.length >= 4) l.splice(live ? 1 : 0, 1); l.push(v); }
-    sessionStorage.setItem('stv.multi', JSON.stringify(l.slice(0, 4)));
-    sessionStorage.setItem('stv.mvSound', v.key);
-    location.href = 'multi.html';
-  }
+  act: v => toMultiview(v)
 });
 </script>
 </body>
