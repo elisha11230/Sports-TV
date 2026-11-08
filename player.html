@@ -50,10 +50,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081529"></script>
-<script src="tv/common.js?v=202611081529"></script>
-<script src="tv/boxscore.js?v=202611081529"></script>
-<script src="tv/alerts.js?v=202611081529"></script>
+<script src="tv/tv-nav.js?v=202611081537"></script>
+<script src="tv/common.js?v=202611081537"></script>
+<script src="tv/boxscore.js?v=202611081537"></script>
+<script src="tv/alerts.js?v=202611081537"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -125,10 +125,52 @@ function showBar(ms) {
 function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); if (qualOpen) { qualOpen = false; drawBar(); } }
 const barOpen = () => !$('bar').classList.contains('off');
 
+/* ---------- a stream that won't load, errors, or freezes: on to the next source ----------
+   No video after 25 seconds (after the tap the app tries), a playback error, or a picture that hasn't
+   moved for 25 seconds while playing. Each source gets a reload before the next one is tried. */
+const DOG_WAIT = 25000;
+let dog = null, tries = {};
+function startDog() {
+  clearInterval(dog && dog.iv);
+  dog = { at: Date.now(), lastT: null, lastMove: Date.now(), iv: setInterval(checkDog, 2000) };
+}
+function checkDog() {
+  const s = sources[cur]; if (!s || !dog) return;
+  const now = Date.now();
+  if (s.type === 'video') {
+    const v = document.querySelector('#stage video'); if (!v) return;
+    if (v.error) return failover('stopped with an error');
+    if (v.paused || v.readyState >= 3) { dog.lastMove = now; return; }
+    if (now - dog.lastMove > DOG_WAIT) failover('froze');
+    return;
+  }
+  if (!KEY) return;   // the embed can only be watched in the app
+  if (!ctl || !ctl.has) { if (now - dog.at > DOG_WAIT) failover('isn’t loading'); return; }
+  if (ctl.err) return failover('stopped with an error');
+  if (ctl.paused) { dog.lastMove = now; dog.lastT = ctl.t; return; }   // paused on purpose
+  if (dog.lastT == null || Math.abs(ctl.t - dog.lastT) > 0.2) { dog.lastT = ctl.t; dog.lastMove = now; return; }
+  if (now - dog.lastMove > DOG_WAIT) failover('froze');
+}
+function failover(why) {
+  clearInterval(dog && dog.iv); dog = null;
+  const name = sources[cur] ? sources[cur].name : 'The stream';
+  tries[cur] = (tries[cur] || 0) + 1;
+  // another source not tried yet, else this one again (once)
+  let next = sources.findIndex((x, i) => i !== cur && x.type !== 'app' && !tries[i]);
+  if (next < 0 && tries[cur] < 2) next = cur;
+  if (next < 0) {
+    message(`${esc(name)} ${why}, and no other source is working right now.<br><small>Pick a source from the bar to try again.</small>`);
+    return;
+  }
+  nav() && nav().toast(next === cur ? `${name} ${why}. Reloading it…` : `${name} ${why}. Switching to ${sources[next].name}…`, 4000);
+  play(next);
+}
+
 function stop() {
   if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
   $('stage').innerHTML = '';
   ctl = null; clearInterval(pollT);
+  clearInterval(dog && dog.iv); dog = null;
 }
 function loadScript(src) {
   return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
@@ -161,6 +203,7 @@ async function play(i) {
       } catch (e) { v.src = url; }
     } else v.src = url;
     v.play().catch(() => {});
+    startDog();
   } else {
     const f = document.createElement('iframe');
     // no popups, no redirecting the app, unless this source has popup blocking turned off
@@ -172,7 +215,7 @@ async function play(i) {
     ctl = null;
     f.addEventListener('load', () => { setTimeout(() => send('status'), 600); setTimeout(() => send('status'), 1500); });
     startPoll();
-    if (KEY) startAuto();
+    if (KEY) { startAuto(); startDog(); }
   }
 }
 function drawBar() {
@@ -288,7 +331,7 @@ function control(a) {
 
 $('chips').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
-  if (b.dataset.i != null) { play(+b.dataset.i); showBar(); return; }
+  if (b.dataset.i != null) { tries = {}; play(+b.dataset.i); showBar(); return; }
   if (b.dataset.q != null) {
     send('quality', b.dataset.q); qualOpen = false; drawBar(); showBar();
     const el = $('chips').querySelector('[data-act="qual"]'); if (el && nav()) nav().focus(el, { noScroll: true });

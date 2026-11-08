@@ -545,7 +545,8 @@
     var e = edges(v), live = !isFinite(v.duration) || v.duration > 86400 || engineLive(v) || !!INFO.live;
     return { has: true, paused: v.paused, muted: v.muted, t: v.currentTime, d: live ? null : v.duration,
              live: live, behind: live ? Math.max(0, e[1] - v.currentTime) : 0, filled: filled === v, q: qualities(v),
-             from: live ? Math.max(0, v.currentTime - e[0]) : 0, dvr: playerKind() };
+             from: live ? Math.max(0, v.currentTime - e[0]) : 0, dvr: playerKind(),
+             err: !!v.error, rs: v.readyState };
   }
 
   function run(c, v) {
