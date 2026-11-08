@@ -53,17 +53,35 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .chip.on{background:var(--ink);color:#0A111E;border-color:var(--ink)}
 .hint{color:var(--ink2);font-size:13px;min-height:17px}
 .hint b{color:var(--ink);font-weight:600}
+/* game picker for adding or switching a game */
+#pick{position:fixed;inset:0;z-index:40;background:rgba(4,7,12,.82);display:flex;align-items:center;justify-content:center;padding:22px}
+#pick[hidden]{display:none}
+#pick .pk{width:min(860px,100%);max-height:100%;overflow:auto;background:#121C30;border:1px solid #26344F;border-radius:16px;padding:16px 18px}
+#pick h2{margin:0 0 4px;font-size:22px}
+#pick .sub{color:var(--ink2);font-size:13px;margin:0 0 12px}
+#pick .pkl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#pick .pg{padding:10px 12px;border-radius:12px;background:#18243C;border:1px solid #26344F;text-align:left}
+#pick .pg:hover{background:#22314F}
+#pick .pg b{display:block;font-size:16px}
+#pick .pg span{font-size:12px;color:var(--ink2)}
+#pick .pg span.live{color:#FF6B6B;font-weight:700}
+#pick .sh{grid-column:1/-1;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-top:6px}
+#pick .row{margin-top:12px}
 #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
 #msg[hidden]{display:none}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081253"></script>
-<script src="tv/common.js?v=202611081253"></script>
-<script src="tv/boxscore.js?v=202611081253"></script>
+<script src="tv/tv-nav.js?v=202611081306"></script>
+<script src="tv/common.js?v=202611081306"></script>
+<script src="tv/boxscore.js?v=202611081306"></script>
 </head>
 <body>
 <div id="grid"></div>
 <div id="msg" hidden></div>
+<div id="pick" role="dialog" aria-modal="true" aria-label="Pick a game" hidden>
+  <div class="pk"><h2 id="pkt">Add a game</h2><p class="sub" id="pks"></p><div class="pkl" id="pkl"></div>
+  <div class="row"><button class="chip" type="button" id="pkx">Cancel</button></div></div>
+</div>
 <div id="bar" class="off" role="dialog" aria-modal="true" aria-label="Multiview options">
   <div class="ttl"><h1>Multiview</h1><span id="sub"></span></div>
   <div class="chips" id="chips"></div>
@@ -109,9 +127,9 @@ function videoDoc(url) {
     `</body>`;
 }
 function tileEl(i) { return $('grid').children[i]; }
+const tileInner = t => `${frameFor(t)}<div class="cap"><span class="sp">🔊</span><b>${esc(t.v.title)}</b><span class="st"></span></div>`;
 function build() {
-  $('grid').innerHTML = tiles.map((t, i) =>
-    `<div class="tile" data-i="${i}">${frameFor(t)}<div class="cap"><span class="sp">🔊</span><b>${esc(t.v.title)}</b><span class="st"></span></div></div>`).join('');
+  $('grid').innerHTML = tiles.map((t, i) => `<div class="tile" data-i="${i}">${tileInner(t)}</div>`).join('');
   tiles.forEach((t, i) => hookFrame(i));
   paint();
 }
@@ -199,7 +217,10 @@ function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); qualOpe
 function drawBar() {
   const t = tiles[sel];
   $('sub').textContent = t ? `Selected: ${t.v.title}${sel === audio ? ' · has the sound' : ''}` : '';
-  if (!t) { $('chips').innerHTML = `<button class="chip" type="button" data-a="back">Back to games</button>`; return; }
+  if (!t) {
+    $('chips').innerHTML = `<button class="chip" type="button" data-a="add">＋ Add a game</button><button class="chip" type="button" data-a="back">Back to games</button>`;
+    return;
+  }
   const n = tiles.length, srcs = t.srcs, q = t.st && t.st.q;
   if (qualOpen && q && q.list.length) {
     $('chips').innerHTML = [['auto', 'Auto'], ...q.list.map(x => [x.id, x.label])]
@@ -210,6 +231,8 @@ function drawBar() {
   }
   const ic = (a, name, label, cls) => `<button class="ic${cls ? ' ' + cls : ''}" type="button" data-a="${a}" aria-label="${esc(label)}">${STV.icon(name)}</button>`;
   let h = '';
+  if (n < 4) h += ic('add', 'add', 'Add a game');
+  h += ic('swap', 'swap', `Switch ${t.v.title} for another game`);
   if (n > 1 && sel !== audio) h += ic('audio', 'sound', `Sound to ${t.v.title}`);
   if (n > 1) h += ic('layout', layout === 'grid' ? 'grid' : 'focus', layout === 'grid' ? 'Layout: even grid (switch to big + small)' : 'Layout: big + small (switch to even grid)');
   if (n > 1 && layout === 'focus' && sel !== big) h += ic('big', 'big', 'Make this game big');
@@ -248,7 +271,9 @@ $('chips').addEventListener('click', e => {
     return;
   }
   if (a === 'back') { history.length > 1 ? history.back() : (location.href = 'index.html'); return; }
+  if (a === 'add') { openPicker(-1); return; }
   if (!t) return;
+  if (a === 'swap') { openPicker(sel); return; }
   if (a === 'box') { hideBar(); BOX.open(t.v); return; }
   if (a === 'audio') { setAudio(sel); redrawKeep('layout'); }
   else if (a === 'layout') { layout = layout === 'grid' ? 'focus' : 'grid'; STV.store.set('stv.mvLayout', layout); paint(); redrawKeep('layout'); }
@@ -301,7 +326,7 @@ function moveSel(dir) {
 }
 const DIRS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
 window.addEventListener('keydown', e => {
-  if (BOX.isOpen()) return;   // the remote moves inside the box score; Back closes it
+  if (BOX.isOpen() || pickerOpen()) return;   // the box score or the game picker has the remote; Back closes it
   if (barOpen()) { clearTimeout(hideT); hideT = setTimeout(hideBar, 8000); return; }
   const k = e.key;
   if (k === 'Backspace' || k === 'Escape') return;
@@ -312,15 +337,110 @@ window.addEventListener('keydown', e => {
 }, true);
 window.__tvMenu = () => { barOpen() ? hideBar() : showBar(); return true; };
 window.__tvMedia = a => { if (tiles[audio]) send(audio, a === 'ff' ? 'seek' : a === 'rw' ? 'seek' : 'playpause', a === 'ff' ? 10 : a === 'rw' ? -10 : undefined); return true; };
-window.__tvBackHook = () => { if (barOpen() && tiles.length) { hideBar(); return true; } return false; };
+window.__tvBackHook = () => {
+  if (pickerOpen()) { closePicker(); return true; } if (barOpen() && tiles.length) { hideBar(); return true; } return false; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen()) hideBar(); });
+
+/* ---------- adding and switching games ---------- */
+const PATHS = { nba: 'basketball/nba', nfl: 'football/nfl' };
+const SNAME = { nba: 'NBA', nfl: 'NFL' };
+let pickFor = -1, pickItems = [];
+const pickerOpen = () => !$('pick').hidden;
+const pad2 = n => String(n).padStart(2, '0');
+function todayKey() { const d = new Date(); return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`; }
+// the same game info the home screen hands the player
+function varsFor(ev, sport) {
+  const c = ev.competitions[0], cs = c.competitors.slice().sort((a, b) => (a.homeAway === 'home') - (b.homeAway === 'home'));
+  const [a, h] = cs.map(x => x.team || {}), etd = STV.etDay(new Date(ev.date));
+  return { sport, gameId: ev.id, date: etd, yyyymmdd: etd.replace(/-/g, ''),
+    away: (a.abbreviation || '').toLowerCase(), home: (h.abbreviation || '').toLowerCase(), AWAY: a.abbreviation, HOME: h.abbreviation,
+    awayNick: STV.slug(a.name || a.shortDisplayName), homeNick: STV.slug(h.name || h.shortDisplayName),
+    awayName: STV.slug(a.displayName), homeName: STV.slug(h.displayName),
+    title: `${a.abbreviation} at ${h.abbreviation}`, key: `${sport}:${ev.id}` };
+}
+async function loadPickItems() {
+  const day = todayKey(), items = [];
+  const boards = await Promise.all(Object.keys(PATHS).map(s =>
+    fetch(`https://site.api.espn.com/apis/site/v2/sports/${PATHS[s]}/scoreboard?dates=${day}`, { cache: 'no-store' })
+      .then(r => r.json()).then(j => [s, j.events || []]).catch(() => [s, []])));
+  const chans = await STV.channels();
+  for (const [s, evs] of boards) {
+    for (const ch of chans.filter(c => c.sport === s))
+      items.push({ v: { sport: s, gameId: ch.id, channel: ch.id, title: ch.name, key: `${s}:${ch.id}` }, label: ch.name, sub: '24/7 channel', live: true });
+    if (s === 'nfl' && evs.length) {
+      const etd = STV.etDay(new Date());
+      items.push({ v: { sport: 'nfl', gameId: 'redzone', date: etd, yyyymmdd: etd.replace(/-/g, ''), away: 'redzone', home: 'redzone', AWAY: 'REDZONE', HOME: 'REDZONE',
+        awayNick: 'redzone', homeNick: 'redzone', awayName: 'redzone', homeName: 'redzone', title: 'NFL RedZone', key: 'nfl:redzone' },
+        label: 'NFL RedZone', sub: evs.some(e => e.status.type.state === 'in') ? 'Live' : 'Sunday', live: evs.some(e => e.status.type.state === 'in') });
+    }
+    const rank = { in: 0, pre: 1, post: 2 };
+    evs.slice().sort((a, b) => (rank[a.status.type.state] - rank[b.status.type.state]) || (new Date(a.date) - new Date(b.date))).forEach(ev => {
+      const st = ev.status.type, v = varsFor(ev, s);
+      // no scores here: live, start time, or final
+      const sub = st.state === 'in' ? 'Live' : st.state === 'pre' ? new Date(ev.date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Final';
+      items.push({ v, label: v.title, sub: `${SNAME[s]} · ${sub}`, live: st.state === 'in', sport: s, rank: rank[st.state], at: new Date(ev.date) });
+    });
+  }
+  // live first (games, RedZone, channels), then upcoming by start time, then finished
+  const r = x => x.live ? (x.v.channel ? 1 : 0) : (x.rank != null ? x.rank + 1 : 2);
+  return items.map((x, i) => [x, i]).sort((a, b) => (r(a[0]) - r(b[0])) || ((a[0].at || 0) - (b[0].at || 0)) || (a[1] - b[1])).map(x => x[0]);
+}
+async function openPicker(i) {
+  pickFor = i;
+  hideBar();
+  $('pkt').textContent = i >= 0 ? `Switch ${tiles[i].v.title} for…` : 'Add a game';
+  $('pks').textContent = 'Today’s games, live first';
+  $('pkl').innerHTML = '<p class="note" style="grid-column:1/-1;color:var(--ink2)">Loading games…</p>';
+  $('pick').hidden = false;
+  pickItems = await loadPickItems();
+  if (!pickerOpen()) return;
+  const inView = new Set(tiles.map(t => t.v.key));
+  const list = pickItems.filter(x => !inView.has(x.v.key));
+  $('pkl').innerHTML = list.length
+    ? list.map((x, j) => `<button class="pg" type="button" data-pk="${pickItems.indexOf(x)}"><b>${esc(x.label)}</b><span class="${x.live ? 'live' : ''}">${esc(x.sub)}</span></button>`).join('')
+    : '<p style="grid-column:1/-1;color:var(--ink2)">No other games today.</p>';
+  const first = $('pkl').querySelector('button') || $('pkx');
+  if (first && nav()) nav().focus(first, { noScroll: true });
+}
+function closePicker() {
+  $('pick').hidden = true;
+  const el = tileEl(sel);
+  if (el && nav()) nav().focus($('chips').querySelector('button') || el, { noScroll: true });
+}
+$('pkx').onclick = closePicker;
+$('pick').addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closePicker(); } });
+$('pkl').addEventListener('click', async e => {
+  const b = e.target.closest('[data-pk]'); if (!b) return;
+  const it = pickItems[+b.dataset.pk];
+  const t = { v: it.v, si: 0, st: null, srcs: await STV.streamsFor(it.v) };
+  if (pickFor >= 0 && tiles[pickFor]) {
+    // switch: the tile keeps its spot, its sound and its size
+    const i = pickFor;
+    tiles[i] = t;
+    tileEl(i).innerHTML = tileInner(t);
+    hookFrame(i);
+  } else {
+    if (tiles.length >= 4) return;
+    tiles.push(t);
+    const el = document.createElement('div'); el.className = 'tile'; el.dataset.i = tiles.length - 1; el.innerHTML = tileInner(t);
+    $('grid').appendChild(el);
+    hookFrame(tiles.length - 1);
+    sel = tiles.length - 1;
+    $('msg').hidden = true;
+  }
+  saveMulti(tiles.map(x => x.v));
+  $('pick').hidden = true;
+  paint();
+  setAudio(sel);
+  nav() && nav().toast(pickFor >= 0 ? `Switched to ${it.label}` : `Added ${it.label}`, 2200);
+});
 
 /* ---------- start ---------- */
 (async function () {
   if (bridge) { bridge.call('keepAwake', true); KEY = await bridge.call('frameKey'); }
   const list = multi().slice(0, 4);
   if (!list.length) {
-    $('msg').innerHTML = 'No games in multiview yet.<br>On the home screen, open a game and choose “Add to multiview”.';
+    $('msg').innerHTML = 'No games in multiview yet.<br>Choose “Add a game” above.';
     $('msg').hidden = false; showBar(0); return;
   }
   tiles = await Promise.all(list.map(async v => ({ v, si: 0, st: null, srcs: await STV.streamsFor(v) })));
