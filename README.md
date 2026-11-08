@@ -21,7 +21,7 @@ The app loads these pages from GitHub Pages, so changes to the pages (and the NB
 
 ## Phones
 
-The same APK runs on Android phones. On a phone the app turns freely (the player and multiview turn sideways), the NBA and NFL apps run as their normal phone versions without the TV remote layer, pages use phone layouts, and a ⋯ button in the player and multiview opens the controls. In multiview, tap a game's label to give it the sound. Install it by opening the download link on the phone and allowing the browser to install apps.
+The same APK runs on Android phones. On a phone the app turns freely, the NBA and NFL apps run as their normal phone versions without the TV remote layer, and pages use phone layouts. In the player, held upright the video sits on top with the box score underneath (or the channel's name); turned sideways it's full screen. A tap on the video shows or hides the controls. Multiview turns sideways; tap a game to give it the sound and show the controls, tap again to hide them, double tap to fill the screen with it. Install it by opening the download link on the phone and allowing the browser to install apps.
 
 ## One time setup
 

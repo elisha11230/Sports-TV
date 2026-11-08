@@ -75,11 +75,13 @@ html.dev-phone .cap{pointer-events:auto;opacity:.85;padding:6px 12px}
 #msg[hidden]{display:none}
 
 /* phones: a button to open the controls (taps on the video go to the video itself) */
-#fab{display:none;position:fixed;right:14px;bottom:14px;z-index:15;width:46px;height:46px;border-radius:50%;
-  background:rgba(10,17,30,.72);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;line-height:1}
-html.dev-phone #fab{display:flex;align-items:center;justify-content:center}
+/* phones: a tap on a game picks it (the sound follows) and shows the controls; a second tap hides them,
+   a double tap fills the screen with it. The app's own taps on a player pass through. */
+#tapzone{display:none;position:fixed;inset:0;z-index:6;-webkit-tap-highlight-color:transparent}
+html.dev-phone #tapzone{display:block}
 html.dev-phone #bar{padding:10px 12px 22px}
 html.dev-phone .ic{width:38px;height:38px}
+html.dev-phone .chip{white-space:nowrap;flex:none}
 html.dev-phone .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 html.dev-phone .chips::-webkit-scrollbar{display:none}
 html.dev-phone .ttl h1{font-size:17px}
@@ -90,15 +92,15 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081737"></script>
-<script src="tv/common.js?v=202611081737"></script>
-<script src="tv/boxscore.js?v=202611081737"></script>
-<script src="tv/alerts.js?v=202611081737"></script>
+<script src="tv/tv-nav.js?v=202611081840"></script>
+<script src="tv/common.js?v=202611081840"></script>
+<script src="tv/boxscore.js?v=202611081840"></script>
+<script src="tv/alerts.js?v=202611081840"></script>
 </head>
 <body>
 <div id="grid"></div>
 <div id="msg" hidden></div>
-<button id="fab" type="button" aria-label="Controls">⋯</button>
+<div id="tapzone" aria-hidden="true"></div>
 <div id="pick" role="dialog" aria-modal="true" aria-label="Pick a game" hidden>
   <div class="pk"><h2 id="pkt">Add a game</h2><p class="sub" id="pks"></p><div class="pkl" id="pkl"></div>
   <div class="row"><button class="chip" type="button" id="pkx">Cancel</button></div></div>
@@ -178,7 +180,7 @@ function tapTile(i) {
   t.tapped = true;
   if (barOpen()) hideBar();
   const r = tileEl(i).getBoundingClientRect();
-  bridge.call('tap', (r.left + r.width / 2) / innerWidth, (r.top + r.height * 0.55) / innerHeight);
+  appTap((r.left + r.width / 2) / innerWidth, (r.top + r.height * 0.55) / innerHeight);
   setTimeout(() => send(i, 'status'), 1200);
 }
 function paint() {
@@ -385,7 +387,7 @@ $('chips').addEventListener('click', e => {
   else if (a === 'tap') {
     hideBar();
     const r = tileEl(sel).getBoundingClientRect();
-    setTimeout(() => { if (bridge) bridge.call('tap', (r.left + r.width / 2) / innerWidth, (r.top + r.height / 2) / innerHeight); }, 300);
+    setTimeout(() => { if (bridge) appTap((r.left + r.width / 2) / innerWidth, (r.top + r.height / 2) / innerHeight); }, 300);
   }
   else if (a === 'full') { solo >= 0 ? exitSolo() : enterSolo(sel); }
   else if (a === 'remove') {
@@ -572,7 +574,23 @@ ALERTS.start({
 addEventListener('pagehide', () => { if (bridge) bridge.call('keepAwake', false); });
 
 /* phones: the controls button, and turning the phone sideways while watching */
-$('fab').onclick = () => { barOpen() ? hideBar() : showBar(); };
+// the app's own tap on a player: the tap layer steps aside while it lands
+function appTap(fx, fy) {
+  const tz = $('tapzone');
+  tz.style.pointerEvents = 'none';
+  bridge.call('tap', fx, fy);
+  setTimeout(() => { tz.style.pointerEvents = ''; }, 900);
+}
+$('bar').addEventListener('click', e => { if (STV.phone && !e.target.closest('button')) hideBar(); });
+$('tapzone').addEventListener('click', e => {
+  if (!tiles.length) { showBar(); return; }
+  if (solo >= 0) { barOpen() ? hideBar() : showBar(); return; }
+  const i = tiles.findIndex((t, j) => { const r = tileEl(j).getBoundingClientRect(); return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom; });
+  if (i < 0) { barOpen() ? hideBar() : showBar(); return; }
+  if (e.detail >= 2 && sel === i) { hideBar(); enterSolo(i); return; }
+  if (i !== sel || i !== audio) { sel = i; setAudio(i); showBar(); return; }
+  barOpen() ? hideBar() : showBar();
+});
 if (STV.phone && STV.bridge) {
   STV.bridge.call('orientation', 'landscape');
   addEventListener('pagehide', () => STV.bridge.call('orientation', 'auto'));
