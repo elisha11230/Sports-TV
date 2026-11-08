@@ -1,4 +1,11 @@
 {
-  "_about": "Stream sources every TV picks up. See README.md for the fields and the {codes} you can use in an address.",
-  "sources": []
+  "_about": "Stream sources every TV picks up. See README.md for the fields and the {codes} you can use in an address. A source whose address still says YOUR-SITE stays hidden until you put the real site in.",
+  "sources": [
+    {
+      "name": "Team page",
+      "sport": "all",
+      "type": "embed",
+      "url": "https://YOUR-SITE/{sport}/{homeNick}"
+    }
+  ]
 }

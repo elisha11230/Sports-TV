@@ -60,7 +60,8 @@ window.STV = (function () {
       })
       .catch(function () { repoCache = []; return repoCache; });
   }
-  function usable(s) { return s && s.name && (s.type === 'app' ? !!s.pkg : !!s.url); }
+  // an address still holding the YOUR-SITE placeholder isn't set up yet, so it stays hidden
+  function usable(s) { return s && s.name && (s.type === 'app' ? !!s.pkg : !!s.url && !/YOUR-SITE/i.test(s.url)); }
   function sourcesFor(sport) {
     return repoSources().then(function (repo) {
       return repo.concat(localSources()).filter(function (s) {
