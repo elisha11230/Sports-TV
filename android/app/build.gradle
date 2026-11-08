@@ -25,8 +25,8 @@ android {
             if (ks) {
                 storeFile file(ks)
                 storePassword System.getenv('STV_KEYSTORE_PASSWORD')
-                keyAlias System.getenv('STV_KEY_ALIAS')
-                keyPassword System.getenv('STV_KEY_PASSWORD')
+                keyAlias System.getenv('STV_KEY_ALIAS') ?: 'pressbox'
+                keyPassword System.getenv('STV_KEY_PASSWORD') ?: System.getenv('STV_KEYSTORE_PASSWORD')
             }
         }
     }

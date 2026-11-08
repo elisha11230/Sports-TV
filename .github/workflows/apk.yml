@@ -44,8 +44,6 @@ jobs:
         working-directory: android
         env:
           STV_KEYSTORE_PASSWORD: ${{ secrets.STV_KEYSTORE_PASSWORD }}
-          STV_KEY_ALIAS: ${{ secrets.STV_KEY_ALIAS }}
-          STV_KEY_PASSWORD: ${{ secrets.STV_KEY_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - run: cp android/app/build/outputs/apk/release/app-release.apk PressBoxTV.apk

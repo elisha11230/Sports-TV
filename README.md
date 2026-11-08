@@ -19,7 +19,7 @@ The app loads these pages from GitHub Pages, so changes to the pages (and the NB
 ## One time setup
 
 1. **GitHub Pages:** repo Settings, Pages, deploy from the `main` branch, `/ (root)`. The site lives at `https://elisha11230.github.io/Sports-TV/`.
-2. **Signing key secrets** (Settings, Secrets and variables, Actions): `STV_KEYSTORE_B64`, `STV_KEYSTORE_PASSWORD`, `STV_KEY_ALIAS`, `STV_KEY_PASSWORD`. Every build is signed with this key so new versions install over the old one. Keep a copy of the key file somewhere safe; without it, updating means uninstalling first.
+2. **Signing key secrets** (Settings, Secrets and variables, Actions): `STV_KEYSTORE_B64` (the key file as base64) and `STV_KEYSTORE_PASSWORD`. Every build is signed with this key so new versions install over the old one. Keep a copy of the key file somewhere safe; without it, updating means uninstalling first.
 3. **Build:** push anything in `android/`, or run "Build the Fire TV app" from the Actions tab.
 
 ## Installing on the Fire TV
