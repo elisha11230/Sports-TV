@@ -136,6 +136,8 @@ window.STV = (function () {
     pause: '<rect x="6.5" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="13.5" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>',
     back10: '<path d="M11 4 7 7.5l4 3.5"/><path d="M7.5 7.5H13a6.5 6.5 0 1 1-6.5 6.5"/><text x="13" y="17.3" font-size="6.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text>',
     fwd10: '<path d="M13 4l4 3.5-4 3.5"/><path d="M16.5 7.5H11a6.5 6.5 0 1 0 6.5 6.5"/><text x="11" y="17.3" font-size="6.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text>',
+    back60: '<path d="M11.5 4.5 5 9l6.5 4.5zM19 4.5 12.5 9l6.5 4.5z" fill="currentColor" stroke="none"/><text x="12" y="21.5" font-size="7.5" font-weight="800" text-anchor="middle" fill="currentColor" stroke="none">1m</text>',
+    fwd60: '<path d="M12.5 4.5 19 9l-6.5 4.5zM5 4.5 11.5 9 5 13.5z" fill="currentColor" stroke="none"/><text x="12" y="21.5" font-size="7.5" font-weight="800" text-anchor="middle" fill="currentColor" stroke="none">1m</text>',
     sound: '<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>',
     muted: '<path d="M4 9.5v5h3.5L12 18V6L7.5 9.5z" fill="currentColor" stroke="none"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/>',
     fill: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',

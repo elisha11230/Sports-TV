@@ -50,9 +50,9 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081359"></script>
-<script src="tv/common.js?v=202611081359"></script>
-<script src="tv/boxscore.js?v=202611081359"></script>
+<script src="tv/tv-nav.js?v=202611081407"></script>
+<script src="tv/common.js?v=202611081407"></script>
+<script src="tv/boxscore.js?v=202611081407"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -192,7 +192,8 @@ function drawBar() {
   let html = '';
   if (s && (s.type === 'video' || (s.type === 'embed' && KEY))) {
     html += ic('pp', playing ? 'pause' : 'play', playing ? 'Pause' : 'Play')
-      + ic('back10', 'back10', 'Back 10 seconds') + ic('fwd10', 'fwd10', 'Forward 10 seconds');
+      + ic('back60', 'back60', 'Back 1 minute') + ic('back10', 'back10', 'Back 10 seconds')
+      + ic('fwd10', 'fwd10', 'Forward 10 seconds') + ic('fwd60', 'fwd60', 'Forward 1 minute');
     if (s.type === 'embed') {
       if (ctl && ctl.live) { const at = !(ctl.behind > 15); html += `<button class="chip" type="button" data-act="live" aria-label="${at ? 'At live' : 'Jump to live'}"><i class="livedot${at ? ' on' : ''}"></i>LIVE</button>`; }
       html += ic('mute', ctl && ctl.muted ? 'muted' : 'sound', ctl && ctl.muted ? 'Unmute' : 'Mute')
@@ -277,9 +278,11 @@ function control(a) {
     if (a === 'pp') v.paused ? v.play() : v.pause();
     else if (a === 'back10') v.currentTime = Math.max(0, v.currentTime - 10);
     else if (a === 'fwd10') v.currentTime += 10;
+    else if (a === 'back60') v.currentTime = Math.max(0, v.currentTime - 60);
+    else if (a === 'fwd60') v.currentTime += 60;
     return;
   }
-  const map = { pp: ['playpause'], back10: ['seek', -10], fwd10: ['seek', 10], live: ['live'], mute: ['mute'], fill: ['fill'] };
+  const map = { pp: ['playpause'], back10: ['seek', -10], fwd10: ['seek', 10], back60: ['seek', -60], fwd60: ['seek', 60], live: ['live'], mute: ['mute'], fill: ['fill'] };
   if (map[a]) send(map[a][0], map[a][1]);
 }
 
@@ -300,7 +303,7 @@ $('chips').addEventListener('click', e => {
   const a = b.dataset.act;
   if (a === 'box') { hideBar(); BOX.toggle(G); return; }
   if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
-  else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur]) { control(a); showBar(); setTimeout(drawKeep, 400, a); }
+  else if (['pp', 'back10', 'fwd10', 'back60', 'fwd60', 'live', 'mute', 'fill'].includes(a) && sources[cur]) { control(a); showBar(); setTimeout(drawKeep, 400, a); }
   else if (a === 'tap') { hideBar(); setTimeout(() => { if (bridge) bridge.call('tap', 0.5, 0.5); else nav() && nav().toast('Click the player with a mouse here'); }, 350); }
   else if (a === 'full') {
     const s = sources[cur]; if (!s) return;
