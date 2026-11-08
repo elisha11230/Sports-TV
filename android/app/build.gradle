@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+// GitHub Actions numbers each build; that becomes the version so every APK installs over the last
+def runNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as Integer
+
+android {
+    namespace 'io.github.elisha11230.sportstv'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.elisha11230.sportstv'
+        minSdk 22
+        targetSdk 35
+        versionCode runNumber
+        versionName "1.0.${runNumber}"
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        release {
+            def ks = System.getenv('STV_KEYSTORE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('STV_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('STV_KEY_ALIAS')
+                keyPassword System.getenv('STV_KEY_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // the saved signing key keeps updates installing over the old app; without it the build still works
+            signingConfig System.getenv('STV_KEYSTORE') ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    // lint's release checks are tuned for Play Store apps; this one is sideloaded
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}

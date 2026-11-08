@@ -1,0 +1,64 @@
+name: Build the Fire TV app
+
+# Runs when anything in android/ changes, or by hand from the Actions tab.
+# The finished APK goes on a GitHub Release, so this link always gets the newest one:
+#   https://github.com/elisha11230/Sports-TV/releases/latest/download/PressBoxTV.apk
+on:
+  push:
+    paths: ['android/**', '.github/workflows/apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      # The signing key lives in the repo's secrets so every build can update the app already on the TV.
+      - name: Signing key
+        env:
+          KS: ${{ secrets.STV_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/stv.jks"
+            echo "STV_KEYSTORE=$RUNNER_TEMP/stv.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No STV_KEYSTORE_B64 secret, so this APK uses a throwaway key. Uninstall the old app before installing it."
+          fi
+
+      - name: Build
+        working-directory: android
+        env:
+          STV_KEYSTORE_PASSWORD: ${{ secrets.STV_KEYSTORE_PASSWORD }}
+          STV_KEY_ALIAS: ${{ secrets.STV_KEY_ALIAS }}
+          STV_KEY_PASSWORD: ${{ secrets.STV_KEY_PASSWORD }}
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - run: cp android/app/build/outputs/apk/release/app-release.apk PressBoxTV.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PressBoxTV
+          path: PressBoxTV.apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: Press Box TV build ${{ github.run_number }}
+          body: Install on the Fire TV with Downloader, using https://github.com/elisha11230/Sports-TV/releases/latest/download/PressBoxTV.apk
+          files: PressBoxTV.apk
+          make_latest: true

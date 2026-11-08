@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Press Box TV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A111E; --panel:#121C30; --panel2:#18243C; --line:#26344F; --ink:#EAF0F8; --ink2:#97A6BF; --ink3:#66758F;
+  --live:#FF5A63; --gold:#FFD54A;
+  --nba:#F0884A; --nfl:#5DBA75; --cfb:#E2708A; --mlb:#76A6EA;
+  --display:'Barlow Condensed','Roboto Condensed','Arial Narrow',sans-serif;
+  --body:'Barlow',Roboto,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px}
+body{padding:22px 36px 40px;min-height:100vh;
+  background:radial-gradient(1200px 500px at 85% -10%,rgba(93,186,117,.10),transparent 60%),radial-gradient(900px 500px at 0% 0%,rgba(240,136,74,.10),transparent 55%),var(--bg)}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02em}
+
+/* header */
+.top{display:flex;align-items:center;gap:18px;margin-bottom:18px}
+.brand{font-family:var(--display);font-weight:800;font-size:30px;letter-spacing:.08em;text-transform:uppercase}
+.brand i{font-style:normal;color:var(--gold)}
+.top .sp{flex:1}
+.clock{font-family:var(--display);font-size:22px;font-weight:600;color:var(--ink2);letter-spacing:.04em}
+.iconbtn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:12px;background:var(--panel);border:1px solid var(--line);
+  font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.iconbtn:hover{background:var(--panel2);color:var(--ink)}
+
+/* sport tiles */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.tile{position:relative;height:104px;border-radius:16px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.tile::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--c)}
+.tile::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:var(--c);opacity:.12}
+.tile h2{font-size:30px;text-transform:uppercase;letter-spacing:.05em}
+.tile p{margin:2px 0 0;color:var(--ink2);font-size:14px}
+.tile:hover{background:var(--panel2)}
+.tile.soon{opacity:.5}
+.tile .badge{position:absolute;top:12px;right:14px;font-family:var(--display);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.tile .badge.live{color:var(--live)}
+
+/* scoreboard bar */
+.bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.bar h3{font-size:22px;text-transform:uppercase;letter-spacing:.08em;margin-right:6px}
+.chip{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.chip:hover{color:var(--ink);background:var(--panel2)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--live);margin-left:6px;vertical-align:1px}
+.datebox{display:flex;align-items:center;gap:6px;margin-left:auto}
+.datebox .chip{min-width:40px;text-align:center}
+.datebox .day{font-family:var(--display);font-size:19px;font-weight:600;min-width:150px;text-align:center;letter-spacing:.04em}
+
+/* games */
+.games{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.game{border-radius:14px;background:var(--panel);border:1px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-height:118px}
+.game:hover{background:var(--panel2);border-color:#3A4C70}
+.gtop{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.tag{color:var(--c);font-weight:700}
+.gtop .st{margin-left:auto;text-align:right}
+.gtop .st.live{color:var(--live);font-weight:700}
+.trow{display:flex;align-items:center;gap:10px}
+.trow img{width:30px;height:30px;object-fit:contain}
+.trow b{font-family:var(--display);font-size:22px;letter-spacing:.04em;min-width:52px}
+.trow small{color:var(--ink3);font-size:13px}
+.trow .sc{margin-left:auto;font-family:var(--display);font-size:26px;font-weight:700;min-width:44px;text-align:right}
+.trow.lose .sc,.trow.lose b{color:var(--ink2)}
+.trow .sc.hid{color:var(--ink3);font-size:18px;letter-spacing:.2em}
+.gnote{font-size:12px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.empty{grid-column:1/-1;padding:34px;text-align:center;color:var(--ink2);border:1px dashed var(--line);border-radius:14px}
+.sport-h{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:8px 0 -2px;font-family:var(--display);font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+.sport-h::after{content:"";flex:1;height:1px;background:var(--line)}
+.foot{margin-top:18px;color:var(--ink3);font-size:12px}
+
+/* panels */
+.layer{position:fixed;inset:0;z-index:50;background:rgba(5,9,16,.72);display:flex;align-items:center;justify-content:center;padding:24px}
+.layer[hidden]{display:none}
+.sheet{width:min(560px,100%);max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+.sheet.wide{width:min(820px,100%)}
+.sheet h2{font-size:28px;margin-bottom:4px}
+.sheet .sub{color:var(--ink2);margin:0 0 14px;font-size:14px}
+.acts{display:flex;flex-direction:column;gap:8px}
+.act{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:17px;font-weight:600}
+.act:hover{background:#22314F}
+.act small{margin-left:auto;color:var(--ink3);font-weight:500;font-size:13px}
+.act.primary{background:#1F3B2A;border-color:#2F5A3E}
+.note{color:var(--ink2);font-size:14px;line-height:1.45}
+.sec{margin:16px 0 8px;font-family:var(--display);font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.srcrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);margin-bottom:8px}
+.srcrow .nm{font-weight:600}
+.srcrow .ty{color:var(--ink3);font-size:13px}
+.srcrow .sp{flex:1}
+.srcrow .chip{padding:5px 12px;font-size:14px}
+label.f{display:block;margin:10px 0 6px;color:var(--ink2);font-size:14px}
+input.t{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:#0C1426;color:var(--ink);font:500 16px var(--body)}
+input.t:focus{border-color:var(--gold)}
+code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#CFE0FF}
+.row2{display:flex;gap:10px;margin-top:16px}
+.applist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+</style>
+<script>window.__STV_FORCE = 1</script>
+<script src="tv/tv-nav.js"></script>
+<script src="tv/common.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="brand">Press Box <i>TV</i></div>
+  <div class="sp"></div>
+  <div class="clock" id="clock"></div>
+  <button class="iconbtn" id="spoilbtn" type="button"></button>
+  <button class="iconbtn" id="setbtn" type="button">⚙ Settings</button>
+</header>
+
+<section class="tiles" id="tiles"></section>
+
+<div class="bar">
+  <h3>Games</h3>
+  <div id="filters" class="seg"></div>
+  <div class="datebox">
+    <button class="chip" id="prevday" type="button" aria-label="Previous day">◀</button>
+    <div class="day" id="day"></div>
+    <button class="chip" id="nextday" type="button" aria-label="Next day">▶</button>
+    <button class="chip" id="today" type="button">Today</button>
+  </div>
+</div>
+<section class="games" id="games"></section>
+<p class="foot" id="foot"></p>
+
+<!-- a game's options -->
+<div class="layer" id="gamesheet" role="dialog" aria-modal="true" aria-label="Game" hidden>
+  <div class="sheet"><h2 id="gs-title"></h2><p class="sub" id="gs-sub"></p><div class="acts" id="gs-acts"></div></div>
+</div>
+
+<!-- settings -->
+<div class="layer" id="settings" role="dialog" aria-modal="true" aria-label="Settings" hidden>
+  <div class="sheet wide">
+    <h2>Settings</h2>
+    <p class="sub">Saved on this TV.</p>
+    <div class="sec">Text size</div><div class="seg" id="set-zoom"></div>
+    <div class="sec">Scores</div><div class="seg" id="set-spoil"></div>
+    <div class="sec">Stream sources</div>
+    <div id="set-sources"></div>
+    <div class="seg"><button class="chip" id="addsrc" type="button">+ Add a source</button></div>
+    <p class="note" style="margin-top:12px">Sources in <code>sources.json</code> in the Sports-TV repo show up on every TV. Ones added here stay on this TV.</p>
+    <div class="row2"><button class="act" id="setdone" type="button">Done</button></div>
+  </div>
+</div>
+
+<!-- add or edit a source -->
+<div class="layer" id="srcform" role="dialog" aria-modal="true" aria-label="Stream source" hidden>
+  <div class="sheet wide">
+    <h2 id="sf-title">Add a source</h2>
+    <label class="f" for="sf-name">Name</label><input class="t" id="sf-name" type="text" placeholder="League Pass">
+    <div class="sec">Sport</div><div class="seg" id="sf-sport"></div>
+    <div class="sec">Type</div><div class="seg" id="sf-type"></div>
+    <div id="sf-urlbox">
+      <label class="f" for="sf-url">Address</label><input class="t" id="sf-url" type="url" placeholder="https://example.com/watch/{away}-{home}">
+      <p class="note">Codes filled in per game: <code>{date}</code> <code>{yyyymmdd}</code> <code>{away}</code> <code>{home}</code> <code>{AWAY}</code> <code>{HOME}</code> <code>{awayNick}</code> <code>{homeNick}</code> <code>{awayName}</code> <code>{homeName}</code> <code>{gameId}</code></p>
+    </div>
+    <div id="sf-appbox" hidden>
+      <label class="f" for="sf-pkg">App</label><input class="t" id="sf-pkg" type="text" placeholder="Pick an app below or type its package name">
+      <div class="sec">Installed apps</div><div class="applist" id="sf-apps"></div>
+    </div>
+    <div class="row2"><button class="act primary" id="sf-save" type="button">Save</button><button class="act" id="sf-cancel" type="button">Cancel</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ---------- the apps ----------
+   Add a sport by filling in its app address; it then gets a tile link and its games show. */
+const SPORTS = {
+  nba: { name: 'NBA', blurb: 'Rosters, players, live games', path: 'basketball/nba', q: '',
+         app: 'https://elisha11230.github.io/NBA-App/', link: g => `https://elisha11230.github.io/NBA-App/#GAME=${g.id}` },
+  nfl: { name: 'NFL', blurb: 'Depth charts, players, live games', path: 'football/nfl', q: '',
+         app: 'https://elisha11230.github.io/NFL-Rosters/', link: g => `https://elisha11230.github.io/NFL-Rosters/#/scores${g.week ? '/' + g.week : ''}` },
+  cfb: { name: 'College', blurb: 'Coming soon', path: 'football/college-football', q: '&groups=80', app: '' },
+  mlb: { name: 'MLB', blurb: 'Coming soon', path: 'baseball/mlb', q: '', app: '' },
+};
+const ORDER = ['nba', 'nfl', 'cfb', 'mlb'];
+const ACTIVE = ORDER.filter(k => SPORTS[k].app);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+const noon = d => { const x = new Date(d); x.setHours(12, 0, 0, 0); return x; };
+const today = () => noon(new Date());
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const nav = () => window.__tvNav;
+
+let S = STV.settings();
+if (S.filter !== 'all' && !ACTIVE.includes(S.filter)) S.filter = 'all';
+const state = { date: today(), timer: null, updated: null };
+const revealed = new Set(JSON.parse(sessionStorage.getItem('stv.revealed') || '[]'));
+const cache = {}, errs = {};
+
+/* ---------- ESPN ---------- */
+async function getJSON(url) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 12000);
+  try { const r = await fetch(url, { signal: ctl.signal, cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+function norm(ev, sport) {
+  const c = (ev.competitions && ev.competitions[0]) || {};
+  const st = ((ev.status || c.status || {}).type) || {};
+  const teams = (c.competitors || []).map(x => {
+    const tm = x.team || {};
+    return {
+      abbr: tm.abbreviation || '', short: tm.shortDisplayName || tm.displayName || 'TBD',
+      nick: tm.name || tm.shortDisplayName || '', full: tm.displayName || '',
+      logo: tm.logo || (tm.logos && tm.logos[0] && tm.logos[0].href) || '',
+      score: x.score, rec: (x.records && x.records[0] && x.records[0].summary) || '',
+      home: x.homeAway === 'home', winner: !!x.winner
+    };
+  }).sort((a, b) => a.home - b.home);
+  const nets = [...new Set((c.broadcasts || []).flatMap(b => b.names || []))].slice(0, 2).join(', ');
+  return {
+    id: ev.id, sport, date: new Date(ev.date), state: st.state || 'pre', detail: st.shortDetail || st.detail || '',
+    teams, net: nets, week: ev.week && ev.week.number, note: (c.notes && c.notes[0] && c.notes[0].headline) || ''
+  };
+}
+const rank = { in: 0, pre: 1, post: 2 };
+async function fetchSport(s, key, force) {
+  const ck = s + ':' + key, hit = cache[ck], past = key < ymd(today());
+  if (hit && (past || (!force && Date.now() - hit.at < 20000))) return;
+  try {
+    const d = await getJSON(`https://site.api.espn.com/apis/site/v2/sports/${SPORTS[s].path}/scoreboard?dates=${key}${SPORTS[s].q}`);
+    cache[ck] = { at: Date.now(), events: (d.events || []).map(e => norm(e, s)).sort((a, b) => (rank[a.state] - rank[b.state]) || (a.date - b.date)) };
+    delete errs[ck];
+  } catch (e) { errs[ck] = e.name === 'AbortError' ? 'timed out' : (e.message || 'failed'); }
+}
+async function load(force) {
+  clearTimeout(state.timer);
+  const key = ymd(state.date);
+  render();
+  await Promise.all(ACTIVE.map(s => fetchSport(s, key, force)));
+  if (ymd(state.date) !== key) return;
+  state.updated = new Date();
+  render();
+  const live = ACTIVE.some(s => (cache[s + ':' + key]?.events || []).some(g => g.state === 'in'));
+  const wait = live ? 30000 : key === ymd(today()) ? 120000 : 0;
+  if (wait) state.timer = setTimeout(() => load(true), wait);
+}
+
+/* ---------- drawing ---------- */
+const hideScore = g => S.spoilers && !revealed.has(g.id);
+function statusText(g) {
+  if (g.state === 'pre') return `${g.date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${g.net ? ' · ' + g.net : ''}`;
+  if (g.state === 'in') return hideScore(g) ? 'Live' : g.detail;
+  return hideScore(g) ? 'Final' : g.detail;
+}
+function gameCard(g) {
+  const hid = hideScore(g), showSc = g.state !== 'pre';
+  const row = t => {
+    const lose = !hid && g.state === 'post' && !t.winner;
+    const sc = !showSc ? '' : hid ? '<span class="sc hid">• •</span>' : `<span class="sc">${esc(t.score)}</span>`;
+    // a finished game's records already count it, so they stay hidden with the score
+    const rec = hid && g.state === 'post' ? '' : t.rec;
+    return `<div class="trow${lose ? ' lose' : ''}">${t.logo ? `<img src="${esc(t.logo)}" alt="">` : ''}<b>${esc(t.abbr)}</b><small>${esc(rec)}</small>${sc}</div>`;
+  };
+  return `<button class="game" type="button" data-g="${esc(g.sport + ':' + g.id)}" style="--c:var(--${g.sport})">
+    <div class="gtop"><span class="tag">${esc(SPORTS[g.sport].name)}</span><span class="st${g.state === 'in' ? ' live' : ''}">${esc(statusText(g))}</span></div>
+    ${g.teams.map(row).join('')}
+    ${g.note ? `<div class="gnote">${esc(g.note)}</div>` : ''}</button>`;
+}
+function liveCount(s) { return (cache[s + ':' + ymd(state.date)]?.events || []).filter(g => g.state === 'in').length; }
+function renderTiles() {
+  $('tiles').innerHTML = ORDER.map(k => {
+    const a = SPORTS[k], live = a.app ? liveCount(k) : 0;
+    return `<button class="tile${a.app ? '' : ' soon'}" type="button" data-app="${k}" style="--c:var(--${k})">
+      <span class="badge${live ? ' live' : ''}">${a.app ? (live ? `● ${live} live` : 'Open') : 'Soon'}</span>
+      <h2>${esc(a.name)}</h2><p>${esc(a.blurb)}</p></button>`;
+  }).join('');
+}
+function renderBar() {
+  $('filters').innerHTML = ['all', ...ACTIVE].map(k =>
+    `<button class="chip${S.filter === k ? ' on' : ''}" type="button" data-f="${k}">${k === 'all' ? 'All' : esc(SPORTS[k].name)}${k !== 'all' && liveCount(k) ? '<span class="dot"></span>' : ''}</button>`).join('');
+  const t = ymd(today()), sel = ymd(state.date);
+  $('day').textContent = sel === t ? 'Today' : sel === ymd(addDays(today(), -1)) ? 'Yesterday' : sel === ymd(addDays(today(), 1)) ? 'Tomorrow'
+    : state.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  $('today').hidden = sel === t;
+  $('spoilbtn').textContent = S.spoilers ? '◌ Scores hidden' : '◉ Scores shown';
+}
+function renderGames() {
+  const key = ymd(state.date), show = S.filter === 'all' ? ACTIVE : [S.filter];
+  let html = '', any = false, loading = false;
+  for (const s of show) {
+    const c = cache[s + ':' + key], err = errs[s + ':' + key];
+    if (!c && !err) { loading = true; continue; }
+    const ev = c ? c.events : [];
+    if (!ev.length && !err) continue;
+    any = true;
+    if (show.length > 1) html += `<div class="sport-h" style="--c:var(--${s})">${esc(SPORTS[s].name)}</div>`;
+    html += err ? `<div class="empty">Couldn't load ${esc(SPORTS[s].name)} games (${esc(err)}).</div>` : ev.map(gameCard).join('');
+  }
+  if (!any) html = `<div class="empty">${loading ? 'Loading games…' : 'No games on this day.'}</div>`;
+  const had = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.g;
+  $('games').innerHTML = html;
+  // keep the remote's place when the scores refresh
+  if (had) { const el = document.querySelector(`[data-g="${had}"]`); if (el && nav()) nav().focus(el, { noScroll: true }); }
+  $('foot').textContent = state.updated ? `Updated ${state.updated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ESPN` : '';
+}
+function render() { renderTiles(); renderBar(); renderGames(); }
+function findGame(key) {
+  const [s, id] = key.split(':');
+  return (cache[s + ':' + ymd(state.date)]?.events || []).find(g => g.id === id);
+}
+
+/* ---------- a game's options ---------- */
+function gameVars(g) {
+  const [a, h] = g.teams;
+  const etd = STV.etDay(g.date);
+  return {
+    sport: g.sport, gameId: g.id, date: etd, yyyymmdd: etd.replace(/-/g, ''),
+    away: (a.abbr || '').toLowerCase(), home: (h.abbr || '').toLowerCase(), AWAY: a.abbr, HOME: h.abbr,
+    awayNick: STV.slug(a.nick), homeNick: STV.slug(h.nick), awayName: STV.slug(a.full), homeName: STV.slug(h.full),
+    title: `${a.abbr} at ${h.abbr}`
+  };
+}
+let sheetGame = null;
+async function openGame(key) {
+  const g = findGame(key); if (!g) return;
+  sheetGame = g;
+  const [a, h] = g.teams;
+  $('gs-title').textContent = `${a.short} at ${h.short}`;
+  $('gs-sub').textContent = `${SPORTS[g.sport].name} · ${statusText(g)}`;
+  const srcs = await STV.sourcesFor(g.sport);
+  const v = encodeURIComponent(JSON.stringify(gameVars(g)));
+  let html = srcs.map(s => `<button class="act primary" type="button" data-watch="${esc(s.id)}">▶ Watch on ${esc(s.name)}<small>${s.type === 'app' ? 'opens the app' : s.type === 'video' ? 'stream' : 'player'}</small></button>`).join('');
+  if (!srcs.length) html += `<p class="note">No stream sources set up for ${esc(SPORTS[g.sport].name)} yet. Add one in Settings.</p>`;
+  html += `<button class="act" type="button" data-open="1">Open in the ${esc(SPORTS[g.sport].name)} app</button>`;
+  if (g.state !== 'pre' && S.spoilers) html += `<button class="act" type="button" data-reveal="1">${revealed.has(g.id) ? 'Hide the score' : 'Show the score'}</button>`;
+  if (!srcs.length) html += `<button class="act" type="button" data-settings="1">Settings</button>`;
+  html += `<button class="act" type="button" data-close="1">Close</button>`;
+  $('gs-acts').innerHTML = html;
+  $('gs-acts').dataset.v = v;
+  showLayer('gamesheet');
+}
+$('gs-acts').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b || !sheetGame) return;
+  const g = sheetGame;
+  if (b.dataset.watch) {
+    const src = (await STV.sourcesFor(g.sport)).find(s => s.id === b.dataset.watch);
+    if (src && src.type === 'app') {
+      if (STV.bridge && await STV.bridge.call('launchApp', src.pkg)) { hideLayer('gamesheet'); return; }
+      nav() && nav().toast(STV.bridge ? "Couldn't open that app" : 'Apps open on the Fire TV');
+      return;
+    }
+    location.href = `player.html?g=${$('gs-acts').dataset.v}&s=${encodeURIComponent(b.dataset.watch)}`;
+  } else if (b.dataset.open) location.href = SPORTS[g.sport].link(g);
+  else if (b.dataset.reveal) {
+    revealed.has(g.id) ? revealed.delete(g.id) : revealed.add(g.id);
+    sessionStorage.setItem('stv.revealed', JSON.stringify([...revealed]));
+    hideLayer('gamesheet'); renderGames(); refocus(`[data-g="${g.sport}:${g.id}"]`);
+  } else if (b.dataset.settings) { hideLayer('gamesheet'); openSettings(); }
+  else if (b.dataset.close) hideLayer('gamesheet');
+});
+
+/* ---------- panels ---------- */
+function showLayer(id) { $(id).hidden = false; }
+function hideLayer(id) { $(id).hidden = true; }
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  for (const id of ['srcform', 'settings', 'gamesheet']) if (!$(id).hidden) { hideLayer(id); e.preventDefault(); return; }
+});
+document.querySelectorAll('.layer').forEach(l => l.addEventListener('click', e => { if (e.target === l) hideLayer(l.id); }));
+
+/* ---------- settings ---------- */
+const ZOOMS = [85, 100, 115, 130];
+function renderSettings() {
+  $('set-zoom').innerHTML = ZOOMS.map(z => `<button class="chip${S.textZoom === z ? ' on' : ''}" type="button" data-zoom="${z}">${z === 100 ? 'Normal' : z < 100 ? 'Small' : z === 115 ? 'Large' : 'Larger'}</button>`).join('');
+  $('set-spoil').innerHTML = `<button class="chip${S.spoilers ? ' on' : ''}" type="button" data-spoil="1">Hidden until I choose</button><button class="chip${S.spoilers ? '' : ' on'}" type="button" data-spoil="0">Always shown</button>`;
+  STV.repoSources().then(repo => {
+    const local = STV.localSources();
+    const row = (s, i, isLocal) => `<div class="srcrow"><span class="nm">${esc(s.name || 'Untitled')}</span><span class="ty">${esc(s.type === 'app' ? 'App' : s.type === 'video' ? 'Stream' : 'Player')} · ${esc(s.sport && s.sport !== 'all' ? SPORTS[s.sport]?.name || s.sport : 'All sports')}${isLocal ? '' : ' · sources.json'}</span><span class="sp"></span>
+      ${isLocal ? `<button class="chip" type="button" data-edit="${i}">Edit</button><button class="chip" type="button" data-del="${i}">Remove</button>` : ''}</div>`;
+    const html = repo.map((s, i) => row(s, i, false)).join('') + local.map((s, i) => row(s, i, true)).join('');
+    $('set-sources').innerHTML = html || '<p class="note">No sources yet.</p>';
+  });
+}
+function openSettings() { renderSettings(); showLayer('settings'); }
+$('setbtn').onclick = openSettings;
+$('setdone').onclick = () => hideLayer('settings');
+$('settings').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.zoom) { S.textZoom = +b.dataset.zoom; STV.saveSettings(S); renderSettings(); refocus('[data-zoom="' + S.textZoom + '"]'); }
+  else if (b.dataset.spoil) { S.spoilers = b.dataset.spoil === '1'; STV.saveSettings(S); renderSettings(); render(); refocus('[data-spoil="' + b.dataset.spoil + '"]'); }
+  else if (b.dataset.edit) openForm(+b.dataset.edit);
+  else if (b.dataset.del) {
+    const l = STV.localSources(); l.splice(+b.dataset.del, 1); STV.saveLocalSources(l); renderSettings();
+    setTimeout(() => refocus('#addsrc'), 50);
+  }
+});
+$('addsrc').onclick = () => openForm(-1);
+function refocus(sel) { setTimeout(() => { const el = document.querySelector(sel); if (el && nav()) nav().focus(el, { noScroll: true }); }, 30); }
+
+/* ---------- add or edit a source ---------- */
+let form = null;
+function segButtons(id, items, cur, attr) {
+  $(id).innerHTML = items.map(([v, label]) => `<button class="chip${v === cur ? ' on' : ''}" type="button" data-${attr}="${v}">${esc(label)}</button>`).join('');
+}
+function drawForm() {
+  segButtons('sf-sport', [['all', 'All sports'], ...ACTIVE.map(k => [k, SPORTS[k].name])], form.sport, 'sp');
+  segButtons('sf-type', [['embed', 'Web player'], ['video', 'Video stream (HLS / MP4)'], ['app', 'Open an app']], form.type, 'ty');
+  $('sf-urlbox').hidden = form.type === 'app';
+  $('sf-appbox').hidden = form.type !== 'app';
+  if (form.type === 'app') {
+    $('sf-apps').innerHTML = '<p class="note">Loading apps…</p>';
+    (STV.bridge ? STV.bridge.call('listApps') : Promise.resolve(null)).then(apps => {
+      $('sf-apps').innerHTML = apps && apps.length
+        ? apps.map(a => `<button class="chip" type="button" data-pkg="${esc(a.pkg)}">${esc(a.label)}</button>`).join('')
+        : '<p class="note">The list of apps shows on the Fire TV.</p>';
+    });
+  }
+}
+function openForm(i) {
+  const l = STV.localSources(), s = i >= 0 ? l[i] : {};
+  form = { i, sport: s.sport || 'all', type: s.type || 'embed' };
+  $('sf-title').textContent = i >= 0 ? 'Edit source' : 'Add a source';
+  $('sf-name').value = s.name || ''; $('sf-url').value = s.url || ''; $('sf-pkg').value = s.pkg || '';
+  drawForm(); showLayer('srcform');
+}
+$('srcform').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !form) return;
+  if (b.dataset.sp) { form.sport = b.dataset.sp; drawForm(); refocus(`[data-sp="${form.sport}"]`); }
+  else if (b.dataset.ty) { form.type = b.dataset.ty; drawForm(); refocus(`[data-ty="${form.type}"]`); }
+  else if (b.dataset.pkg) { $('sf-pkg').value = b.dataset.pkg; if (!$('sf-name').value) $('sf-name').value = b.textContent; refocus('#sf-save'); }
+});
+$('sf-cancel').onclick = () => hideLayer('srcform');
+$('sf-save').onclick = () => {
+  const s = { id: 'l' + Date.now().toString(36), name: $('sf-name').value.trim(), sport: form.sport, type: form.type,
+              url: $('sf-url').value.trim(), pkg: $('sf-pkg').value.trim() };
+  if (!s.name) { nav() && nav().toast('Give the source a name'); return; }
+  if (s.type === 'app' ? !s.pkg : !/^https?:\/\//i.test(s.url)) { nav() && nav().toast(s.type === 'app' ? 'Pick an app' : 'Enter an address starting with https://'); return; }
+  const l = STV.localSources();
+  if (form.i >= 0) { s.id = l[form.i].id || s.id; l[form.i] = s; } else l.push(s);
+  STV.saveLocalSources(l);
+  hideLayer('srcform'); renderSettings();
+};
+
+/* ---------- controls ---------- */
+$('tiles').addEventListener('click', e => {
+  const t = e.target.closest('[data-app]'); if (!t) return;
+  const a = SPORTS[t.dataset.app];
+  if (a.app) location.href = a.app; else nav() && nav().toast(`${a.name} is coming soon`);
+});
+$('filters').addEventListener('click', e => {
+  const b = e.target.closest('[data-f]'); if (!b) return;
+  S.filter = b.dataset.f; STV.saveSettings(S); render(); refocus(`[data-f="${S.filter}"]`);
+});
+$('games').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (b) openGame(b.dataset.g); });
+const stepDay = n => { state.date = addDays(state.date, n); load(); };
+$('prevday').onclick = () => stepDay(-1);
+$('nextday').onclick = () => stepDay(1);
+$('today').onclick = () => { state.date = today(); load(); refocus('#nextday'); };
+$('spoilbtn').onclick = () => { S.spoilers = !S.spoilers; STV.saveSettings(S); render(); };
+
+function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+tick(); setInterval(tick, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
+load();
+// start on the first game if there is one, otherwise the first app
+setTimeout(() => { const el = document.querySelector('.game') || document.querySelector('.tile'); if (el && nav()) nav().focus(el); }, 1200);
+</script>
+</body>
+</html>

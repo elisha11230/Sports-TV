@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Watch · Press Box TV</title>
+<style>
+:root{--ink:#EAF0F8;--ink2:#A7B4CA;--gold:#FFD54A}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:Barlow,Roboto,system-ui,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+#stage{position:fixed;inset:0;background:#000}
+#stage iframe,#stage video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+#bar{position:fixed;left:0;right:0;top:0;z-index:10;padding:18px 28px 40px;background:linear-gradient(rgba(0,0,0,.85),rgba(0,0,0,.55) 70%,transparent);
+  display:flex;flex-direction:column;gap:12px;transition:opacity .25s}
+#bar.off{opacity:0;pointer-events:none;visibility:hidden}
+.ttl{display:flex;align-items:baseline;gap:14px}
+.ttl h1{margin:0;font-size:26px;font-weight:700;letter-spacing:.02em}
+.ttl span{color:var(--ink2);font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,28,44,.85);font-weight:600;font-size:16px}
+.chip:hover{background:rgba(40,54,82,.95)}
+.chip.on{background:var(--ink);color:#0A111E;border-color:var(--ink)}
+.hint{color:var(--ink2);font-size:13px}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
+#msg[hidden]{display:none}
+</style>
+<script>window.__STV_FORCE = 1</script>
+<script src="tv/tv-nav.js"></script>
+<script src="tv/common.js"></script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="msg" hidden></div>
+<div id="bar" role="dialog" aria-modal="true" aria-label="Player controls">
+  <div class="ttl"><h1 id="ttl"></h1><span id="srcname"></span></div>
+  <div class="chips" id="chips"></div>
+  <div class="hint" id="hint"></div>
+</div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const q = new URLSearchParams(location.search);
+let G = {}; try { G = JSON.parse(q.get('g') || '{}'); } catch (e) {}
+const nav = () => window.__tvNav;
+const bridge = STV.bridge;
+let sources = [], cur = -1, hideT = null, hls = null;
+
+function message(t) { $('msg').innerHTML = t; $('msg').hidden = !t; }
+function showBar(ms) {
+  $('bar').classList.remove('off');
+  clearTimeout(hideT);
+  if (ms !== 0) hideT = setTimeout(hideBar, ms || 6000);
+  setTimeout(() => {
+    const f = nav() && nav().focused();
+    if (!f || !$('bar').contains(f)) { const on = $('chips').querySelector('.on') || $('chips').querySelector('button'); if (on && nav()) nav().focus(on, { noScroll: true }); }
+  }, 30);
+}
+function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); }
+const barOpen = () => !$('bar').classList.contains('off');
+
+function stop() {
+  if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
+  $('stage').innerHTML = '';
+}
+function loadScript(src) {
+  return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+}
+async function play(i) {
+  cur = i; stop(); message('');
+  const s = sources[i];
+  if (!s) return;
+  drawBar();
+  if (s.type === 'app') {
+    if (bridge && await bridge.call('launchApp', s.pkg)) return;
+    message("Couldn't open that app on this device."); return;
+  }
+  const url = STV.fill(s.url, G, s.codes);
+  if (/\{\w+\}/.test(url)) { message(`This source's address has a code that couldn't be filled in:<br><small>${esc(url)}</small>`); return; }
+  if (s.type === 'video') {
+    const v = document.createElement('video');
+    v.autoplay = true; v.playsInline = true; v.controls = false;
+    $('stage').appendChild(v);
+    v.addEventListener('error', () => message("This stream wouldn't play. Try another source."));
+    const isHls = /\.m3u8(\?|$)/i.test(url);
+    if (isHls && !v.canPlayType('application/vnd.apple.mpegurl')) {
+      try {
+        if (!window.Hls) await loadScript('https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js');
+        if (window.Hls && Hls.isSupported()) {
+          hls = new Hls({ lowLatencyMode: true });
+          hls.on(Hls.Events.ERROR, (e, d) => { if (d.fatal) message("This stream wouldn't play. Try another source."); });
+          hls.loadSource(url); hls.attachMedia(v);
+        } else v.src = url;
+      } catch (e) { v.src = url; }
+    } else v.src = url;
+    v.play().catch(() => {});
+  } else {
+    const f = document.createElement('iframe');
+    f.src = url;
+    f.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+    f.allowFullscreen = true;
+    $('stage').appendChild(f);
+  }
+}
+function drawBar() {
+  const s = sources[cur];
+  $('ttl').textContent = G.title || 'Watch';
+  $('srcname').textContent = s ? s.name : '';
+  let html = sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}">${esc(x.name)}</button>`).join('');
+  if (s && s.type === 'embed') html += `<button class="chip" type="button" data-act="tap">▶ Press play</button><button class="chip" type="button" data-act="full">Open full page</button>`;
+  if (s && s.type === 'video') html += `<button class="chip" type="button" data-act="pp">Play / pause</button>`;
+  html += `<button class="chip" type="button" data-act="back">Back to games</button>`;
+  $('chips').innerHTML = html;
+  $('hint').textContent = s && s.type === 'video'
+    ? 'Select plays or pauses · Left and right skip 10 seconds · Back closes this bar'
+    : 'Menu or any arrow shows this bar · Press play clicks the middle of the player · Back closes this bar';
+}
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.i != null) { play(+b.dataset.i); showBar(); return; }
+  const a = b.dataset.act;
+  if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
+  else if (a === 'tap') { hideBar(); setTimeout(() => { if (bridge) bridge.call('tap', 0.5, 0.5); else nav() && nav().toast('Click the player with a mouse here'); }, 350); }
+  else if (a === 'full') { const s = sources[cur]; if (s) location.href = STV.fill(s.url, G, s.codes); }
+  else if (a === 'pp') { const v = document.querySelector('video'); if (v) v.paused ? v.play() : v.pause(); }
+});
+
+/* ---------- the remote ---------- */
+// with the bar hidden, a key brings it back instead of moving focus (video keys still work)
+window.addEventListener('keydown', e => {
+  if (barOpen()) { showBar(); return; }   // any key keeps the bar up a little longer
+  const v = document.querySelector('video');
+  const k = e.key;
+  if (v && (k === 'Enter' || e.keyCode === 23)) { v.paused ? v.play() : v.pause(); }
+  else if (v && k === 'ArrowLeft') v.currentTime = Math.max(0, v.currentTime - 10);
+  else if (v && k === 'ArrowRight') v.currentTime += 10;
+  else if (k === 'Backspace' || k === 'Escape') return;
+  else showBar();
+  e.preventDefault(); e.stopImmediatePropagation();
+}, true);
+window.__tvMenu = () => { barOpen() ? hideBar() : showBar(); return true; };
+window.__tvBackHook = () => {
+  if (barOpen() && sources[cur]) { hideBar(); return true; }
+  if (!sources[cur]) { if (history.length > 1) history.back(); else location.href = 'index.html'; return true; }
+  return false;
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen()) hideBar(); });
+
+/* ---------- start ---------- */
+(async function () {
+  if (bridge) bridge.call('keepAwake', true);
+  sources = (await STV.sourcesFor(G.sport)).filter(s => s.type !== 'app');
+  if (!sources.length) { message('No stream sources are set up for this sport.<br>Add one in Settings on the home screen.'); drawBar(); showBar(0); return; }
+  const want = sources.findIndex(s => s.id === q.get('s'));
+  await play(want >= 0 ? want : 0);
+  showBar(5000);
+})();
+addEventListener('pagehide', () => { stop(); if (bridge) bridge.call('keepAwake', false); });
+</script>
+</body>
+</html>
