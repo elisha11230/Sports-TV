@@ -71,9 +71,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #msg[hidden]{display:none}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081306"></script>
-<script src="tv/common.js?v=202611081306"></script>
-<script src="tv/boxscore.js?v=202611081306"></script>
+<script src="tv/tv-nav.js?v=202611081309"></script>
+<script src="tv/common.js?v=202611081309"></script>
+<script src="tv/boxscore.js?v=202611081309"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -126,6 +126,7 @@ function videoDoc(url) {
       `if(!v.canPlayType('application/vnd.apple.mpegurl')&&window.Hls&&Hls.isSupported()){var h=new Hls();h.loadSource(${JSON.stringify(url)});h.attachMedia(v);}<\/script>` : '') +
     `</body>`;
 }
+const behind = s => { s = Math.round(s); const m = Math.floor(s / 60); return m ? `${m}:${String(s % 60).padStart(2, '0')}` : `${s}s`; };
 function tileEl(i) { return $('grid').children[i]; }
 const tileInner = t => `${frameFor(t)}<div class="cap"><span class="sp">🔊</span><b>${esc(t.v.title)}</b><span class="st"></span></div>`;
 function build() {
@@ -160,7 +161,8 @@ function paint() {
     el.classList.toggle('aud', i === audio);
     el.classList.toggle('big', i === big);
     const st = el.querySelector('.st');
-    st.textContent = !KEY ? '' : !t.st ? 'connecting…' : !t.st.has ? 'tap video' : t.st.paused ? 'paused' : '';
+    st.textContent = !KEY ? '' : !t.st ? 'connecting…' : !t.st.has ? 'tap video' : t.st.paused ? 'paused'
+      : t.st.live && t.st.behind > 15 ? `${behind(t.st.behind)} behind` : '';
   });
 }
 
@@ -236,6 +238,9 @@ function drawBar() {
   if (n > 1 && sel !== audio) h += ic('audio', 'sound', `Sound to ${t.v.title}`);
   if (n > 1) h += ic('layout', layout === 'grid' ? 'grid' : 'focus', layout === 'grid' ? 'Layout: even grid (switch to big + small)' : 'Layout: big + small (switch to even grid)');
   if (n > 1 && layout === 'focus' && sel !== big) h += ic('big', 'big', 'Make this game big');
+  const st = t.st || {};
+  if (st.has && st.live) h += `<button class="chip" type="button" data-a="live" aria-label="Jump ${esc(t.v.title)} to live">● LIVE${st.behind > 15 ? ` <span style="opacity:.7;font-weight:500">−${behind(st.behind)}</span>` : ''}</button>`;
+  if (n > 1 && tiles.some(x => x.st && x.st.has && x.st.live)) h += `<button class="chip" type="button" data-a="liveall" aria-label="Jump every game to live">All live</button>`;
   h += ic('clean', 'fill', 'Fill tiles', clean ? 'on' : '');
   if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual" aria-label="Quality for ${esc(t.v.title)}">${esc(qualLabel(q))}</button>`;
   if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src" aria-label="Switch source">${esc(srcs[t.si].name)}</button>`;
@@ -275,6 +280,8 @@ $('chips').addEventListener('click', e => {
   if (!t) return;
   if (a === 'swap') { openPicker(sel); return; }
   if (a === 'box') { hideBar(); BOX.open(t.v); return; }
+  if (a === 'live') { send(sel, 'live'); setTimeout(() => redrawKeep('live'), 900); nav() && nav().toast(`${t.v.title}: live`, 1500); return; }
+  if (a === 'liveall') { tiles.forEach((x, i) => { if (x.st && x.st.live) send(i, 'live'); }); setTimeout(() => redrawKeep('liveall'), 900); nav() && nav().toast('Every game: live', 1500); return; }
   if (a === 'audio') { setAudio(sel); redrawKeep('layout'); }
   else if (a === 'layout') { layout = layout === 'grid' ? 'focus' : 'grid'; STV.store.set('stv.mvLayout', layout); paint(); redrawKeep('layout'); }
   else if (a === 'big') { big = sel; paint(); redrawKeep('layout'); }

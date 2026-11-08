@@ -93,7 +93,7 @@ A game source can have `"replay"` (full game) and `"condensed"` addresses with t
 
 ## Multiview and RedZone
 
-Open a game on the home screen and choose "Add to multiview" (up to four games), then "Open multiview" or the Multiview button by the sport filters. With the options bar closed, the arrows move to a game and its sound comes with it, and Menu (☰) opens the options: add a game, switch the selected game for another, layout (even grid, or one big plus the rest small), make the selected game big, fill tiles, switch source, tap video, full screen, remove. Sound switching and fill need the Fire TV app.
+Open a game on the home screen and choose "Add to multiview" (up to four games), then "Open multiview" or the Multiview button by the sport filters. With the options bar closed, the arrows move to a game and its sound comes with it, and Menu (☰) opens the options: add a game, switch the selected game for another, ● LIVE (jump the selected game to live) and All live, layout (even grid, or one big plus the rest small), make the selected game big, fill tiles, switch source, tap video, full screen, remove. Each tile shows how far behind live it is. Sound switching, live, and fill need the Fire TV app.
 
 On days with NFL games a RedZone card leads the NFL list. It plays from the same sources with the team codes set to `redzone`, so a `/{sport}/{homeNick}` address becomes `/nfl/redzone`. RedZone can go in multiview too.
 
