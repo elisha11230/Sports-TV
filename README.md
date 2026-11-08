@@ -78,7 +78,7 @@ Streams start on their own: once the player finds the video it presses play and 
 The app adds a small script (`android/app/src/main/assets/frame-control.js`) inside every embedded player. It finds the player's `<video>` (Shaka Player and most web players use one) and takes commands from the player page: play/pause, skip 10 seconds, go live, mute, fill screen and quality. Quality works when the embed uses Shaka Player or hls.js: the script finds the player behind the video and lists its qualities (Auto, 1080p, 720p…). With the controls bar closed, Select plays or pauses and left/right skip. Commands carry a key the app makes at each launch, so other pages can't drive it.
 
 ### Popups and redirects
-Embedded players can't open popups or send the app to another site: the frame runs sandboxed, its `window.open` does nothing, and the app itself drops popups and outside redirects while the player page is showing. If a player refuses to load sandboxed, set `"sandbox": false` on that source (or choose "Allow" in the source's settings on the TV).
+Stream frames are not sandboxed (stream sites refuse to play in a sandboxed frame). Popups and redirects are stopped by the app instead: the frame's `window.open` does nothing, and the app drops popups, outside redirects and app links while the player or multiview is showing. In a desktop browser there's no app, so a site's ads can open popups there.
 
 ## Box score
 

@@ -105,7 +105,8 @@ public class MainActivity extends Activity {
     // the one outside address the player page may send the whole app to ("Open full page")
     volatile String allowedNav = null;
 
-    boolean onPlayer() { String u = web.getUrl(); return u != null && u.startsWith(HOME) && u.contains("player.html"); }
+    // the pages that show stream sites: the player and multiview. Popups, redirects and app links are blocked there.
+    boolean onPlayer() { String u = web.getUrl(); return u != null && u.startsWith(HOME) && (u.contains("player.html") || u.contains("multi.html")); }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override

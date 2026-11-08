@@ -136,9 +136,9 @@ html.dev-phone .sheet{padding:16px}
 
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081629"></script>
-<script src="tv/boxscore.js?v=202611081629"></script>
-<script src="tv/common.js?v=202611081629"></script>
+<script src="tv/tv-nav.js?v=202611081645"></script>
+<script src="tv/boxscore.js?v=202611081645"></script>
+<script src="tv/common.js?v=202611081645"></script>
 </head>
 <body>
 <header class="top">
@@ -217,7 +217,6 @@ html.dev-phone .sheet{padding:16px}
       <label class="f" for="sf-url">Address</label><input class="t" id="sf-url" type="url" placeholder="https://example.com/watch/{away}-{home}">
       <label class="f" for="sf-replay">Full game replay address (optional, for finished games)</label><input class="t" id="sf-replay" type="url" placeholder="https://example.com/replay/{date}/{away}-{home}">
       <label class="f" for="sf-cond">Condensed game address (optional)</label><input class="t" id="sf-cond" type="url" placeholder="https://example.com/condensed/{date}/{away}-{home}">
-      <div class="sec">Popups and redirects</div><div class="seg" id="sf-sandbox"></div>
       <p class="note">Codes filled in per game: <code>{date}</code> <code>{yyyymmdd}</code> <code>{away}</code> <code>{home}</code> <code>{AWAY}</code> <code>{HOME}</code> <code>{awayNick}</code> <code>{homeNick}</code> <code>{awayName}</code> <code>{homeName}</code> <code>{gameId}</code></p>
     </div>
     <div id="sf-appbox" hidden>
@@ -602,9 +601,6 @@ function segButtons(id, items, cur, attr) {
 function drawForm() {
   segButtons('sf-sport', [['all', 'All sports'], ...ACTIVE.map(k => [k, SPORTS[k].name])], form.sport, 'sp');
   segButtons('sf-type', [['embed', 'Web player'], ['video', 'Video stream (HLS / MP4)'], ['app', 'Open an app']], form.type, 'ty');
-  segButtons('sf-sandbox', [['on', 'Block them'], ['off', "Allow (if the player won't load)"]], form.sandbox ? 'on' : 'off', 'sb');
-  $('sf-sandbox').parentElement.querySelector('.sec').hidden = form.type !== 'embed';
-  $('sf-sandbox').hidden = form.type !== 'embed';
   $('sf-urlbox').hidden = form.type === 'app';
   $('sf-appbox').hidden = form.type !== 'app';
   if (form.type === 'app') {

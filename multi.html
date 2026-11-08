@@ -90,10 +90,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081629"></script>
-<script src="tv/common.js?v=202611081629"></script>
-<script src="tv/boxscore.js?v=202611081629"></script>
-<script src="tv/alerts.js?v=202611081629"></script>
+<script src="tv/tv-nav.js?v=202611081645"></script>
+<script src="tv/common.js?v=202611081645"></script>
+<script src="tv/boxscore.js?v=202611081645"></script>
+<script src="tv/alerts.js?v=202611081645"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -138,7 +138,7 @@ function frameFor(t) {
   if (!s) return `<div class="empty">No stream source for ${esc(SPORT_NAME[t.v.sport] || t.v.sport)}. Add one in Settings.</div>`;
   const url = STV.fill(s.url, t.v, s.codes);
   if (s.type === 'video') return `<iframe data-video="1" srcdoc="${esc(videoDoc(url))}" allow="autoplay; fullscreen"></iframe>`;
-  const sb = s.sandbox !== false ? ' sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"' : '';
+  const sb = '';   // no sandbox: stream sites refuse to play in one. The app blocks their popups and redirects.
   return `<iframe src="${esc(url)}"${sb} allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>`;
 }
 // a direct stream plays in a small page of its own, so every tile takes the same commands
