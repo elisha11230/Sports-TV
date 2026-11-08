@@ -24,6 +24,7 @@
     for (var i = 0; i < engines.length; i++) if (engines[i].obj === obj) return engines[i];
     var g = { kind: kind, obj: obj };
     engines.push(g);
+    try { INFO.kind = kind === 'hls' ? 'hls.js' : 'Shaka'; } catch (e) {}
     return g;
   }
   function wrap(proto, names, kind) {
@@ -80,13 +81,20 @@
   var rawFetch = window.fetch && window.fetch.bind(window);
   var found = {};   // playlist address -> how many older pieces the server still has (or a promise of it)
 
+  // what the rewind finder saw, shown in the player bar so a stream that won't rewind can be explained
+  var INFO = { lists: 0, why: 'none', back: 0, sample: '', code: '' };
+
+  // does the server still have this piece? asks for one byte, or for the headers only if that's refused
   function has(u) {
-    if (!rawFetch) return Promise.resolve(false);
-    var c = window.AbortController ? new AbortController() : null;
-    var t = setTimeout(function () { try { c && c.abort(); } catch (e) {} }, 5000);
-    return rawFetch(u, { headers: { Range: 'bytes=0-0' }, signal: c ? c.signal : undefined, cache: 'no-store' })
-      .then(function (r) { clearTimeout(t); try { c && c.abort(); } catch (e) {} return r.ok; })
-      .catch(function () { clearTimeout(t); return false; });
+    if (!rawFetch || !u) return Promise.resolve(false);
+    var once = function (headers) {
+      var c = window.AbortController ? new AbortController() : null;
+      var t = setTimeout(function () { try { c && c.abort(); } catch (e) {} }, 5000);
+      return rawFetch(u, { headers: headers, signal: c ? c.signal : undefined, cache: 'no-store', credentials: 'same-origin' })
+        .then(function (r) { clearTimeout(t); try { c && c.abort(); } catch (e) {} INFO.code = String(r.status); return r.ok; },
+              function (e) { clearTimeout(t); INFO.code = 'blocked'; throw e; });
+    };
+    return once({ Range: 'bytes=0-0' }).catch(function () { return once({}); }).catch(function () { return false; });
   }
 
   // works out how the piece names count up: one number in the name that rises by the same step each piece
@@ -120,57 +128,184 @@
     };
   }
 
+  var MARK = '#STV-LONGER';   // a comment line; players skip it. Stops a list being lengthened twice
+
+  // reads a live list; returns what's needed to lengthen it, or null (with the reason in INFO)
+  function prep(text, url) {
+    if (typeof text !== 'string' || text.indexOf('#EXTINF') < 0) return null;
+    if (text.indexOf(MARK) >= 0) return null;
+    INFO.lists++;
+    if (/#EXT-X-ENDLIST/.test(text)) { INFO.why = 'ended'; INFO.live = false; return null; }
+    INFO.live = true;
+    if (/#EXT-X-DISCONTINUITY\s*$/m.test(text) || /#EXT-X-BYTERANGE/.test(text) || (text.match(/#EXT-X-KEY/g) || []).length > 1) { INFO.why = 'format'; return null; }
+    var m = text.match(/#EXT-X-MEDIA-SEQUENCE:\s*(\d+)/);
+    var seq = m ? +m[1] : 0, lines = text.split(/\r?\n/), segs = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].indexOf('#EXTINF:') !== 0) continue;
+      for (var j = i + 1; j < lines.length; j++) {
+        var l = lines[j].trim();
+        if (l && l[0] !== '#') { segs.push({ at: i, dur: parseFloat(lines[i].slice(8)) || 0, uri: l }); break; }
+      }
+    }
+    if (segs.length < 3) { INFO.why = 'short'; return null; }
+    var pat = pattern(segs.map(function (x) { return x.uri; }));
+    if (!pat) {
+      INFO.why = 'names';
+      INFO.sample = segs.slice(-2).map(function (x) { return x.uri.split('/').pop().slice(-48); }).join('  ');
+      return null;
+    }
+    var avg = segs.reduce(function (a2, x) { return a2 + x.dur; }, 0) / segs.length;
+    if (!(avg > 0)) { INFO.why = 'format'; return null; }
+    var most = Math.min(Math.floor(REACH / avg), Math.floor(pat.first / pat.step), m ? seq : Infinity);
+    if (most < 1) { INFO.why = 'server'; return null; }
+    return { text: text, url: url, seq: seq, hasSeq: !!m, lines: lines, segs: segs, pat: pat, avg: avg, most: most, key: String(url).split('?')[0] };
+  }
+
+  function abs(P, back) { var u = P.pat.older(back); try { return u && new URL(u, P.url).href; } catch (e) { return null; } }
+
+  // the furthest piece back the server still has: 7 points checked at once, then the gap between the
+  // last one found and the first one missing; about 4 rounds for a whole game. Done once per list.
+  function probe(P) {
+    if (found[P.key] != null) return Promise.resolve(found[P.key]);
+    INFO.why = 'checking';
+    var lo = 0, hi = P.most + 1;
+    var round = function () {
+      if (hi - lo <= 1) return lo;
+      var pts = [], gap = (hi - lo) / 8;
+      for (var q = 1; q <= 7; q++) { var x = Math.round(lo + gap * q); if (x > lo && x < hi && pts.indexOf(x) < 0) pts.push(x); }
+      if (!pts.length) pts.push(lo + 1);
+      return Promise.all(pts.map(function (x) { return has(abs(P, x)); })).then(function (oks) {
+        for (var r = 0; r < pts.length; r++) { if (oks[r]) lo = pts[r]; else { hi = pts[r]; break; } }
+        return round();
+      });
+    };
+    found[P.key] = has(abs(P, P.most)).then(function (ok) { return ok ? P.most : round(); })
+      .then(function (n) { found[P.key] = n; return n; }, function () { found[P.key] = 0; return 0; })
+      .then(function (n) { INFO.why = n ? 'ok' : 'server'; INFO.back = Math.max(INFO.back, Math.round(n * P.avg)); return n; });
+    return found[P.key];
+  }
+
+  function build(P, n) {
+    n = Math.min(n, P.most);
+    var add = [];
+    for (var b = n; b >= 1; b--) { var u = P.pat.older(b); if (u) add.push('#EXTINF:' + P.avg.toFixed(3) + ',', u); }
+    if (!add.length) return P.text;
+    var lines = P.lines, at = P.segs[0].at;
+    while (at > 0 && /^#EXT-X-PROGRAM-DATE-TIME/.test(lines[at - 1])) at--;
+    var out = lines.slice(0, at).concat(add, lines.slice(at)).join('\n');
+    var seq = '#EXT-X-MEDIA-SEQUENCE:' + (P.seq - add.length / 2);
+    out = P.hasSeq ? out.replace(/#EXT-X-MEDIA-SEQUENCE:\s*\d+/, seq) : out.replace('#EXTM3U', '#EXTM3U\n' + seq);
+    return out.replace('#EXTM3U', '#EXTM3U\n' + MARK);
+  }
+
+  // waits for the check the first time (players that let us hold the list)
   function lengthen(text, url) {
     try {
-      if (typeof text !== 'string' || text.indexOf('#EXTINF') < 0 || /#EXT-X-ENDLIST/.test(text)) return Promise.resolve(text);
-      if (/#EXT-X-DISCONTINUITY\s*$/m.test(text) || /#EXT-X-BYTERANGE/.test(text) || (text.match(/#EXT-X-KEY/g) || []).length > 1) return Promise.resolve(text);
-      var m = text.match(/#EXT-X-MEDIA-SEQUENCE:\s*(\d+)/);
-      if (!m) return Promise.resolve(text);
-      var seq = +m[1], lines = text.split(/\r?\n/), segs = [];
-      for (var i = 0; i < lines.length; i++) {
-        if (lines[i].indexOf('#EXTINF:') !== 0) continue;
-        for (var j = i + 1; j < lines.length; j++) {
-          var l = lines[j].trim();
-          if (l && l[0] !== '#') { segs.push({ at: i, dur: parseFloat(lines[i].slice(8)) || 0, uri: l }); break; }
-        }
-      }
-      if (segs.length < 3) return Promise.resolve(text);
-      var pat = pattern(segs.map(function (x) { return x.uri; }));
-      if (!pat) return Promise.resolve(text);
-      var avg = segs.reduce(function (a, x) { return a + x.dur; }, 0) / segs.length;
-      if (!(avg > 0)) return Promise.resolve(text);
-      var most = Math.min(Math.floor(REACH / avg), Math.floor(pat.first / pat.step), seq);
-      if (most < 1) return Promise.resolve(text);
-      var key = String(url).split('?')[0];
-      var abs = function (back) { try { return new URL(pat.older(back), url).href; } catch (e) { return null; } };
-      if (found[key] == null) {
-        // the furthest piece back the server still has: 7 points checked at once, then the gap
-        // between the last one found and the first one missing, about 4 rounds for a whole game
-        var lo = 0, hi = most + 1;
-        var round = function () {
-          if (hi - lo <= 1) return lo;
-          var pts = [], gap = (hi - lo) / 8;
-          for (var q = 1; q <= 7; q++) { var x = Math.round(lo + gap * q); if (x > lo && x < hi && pts.indexOf(x) < 0) pts.push(x); }
-          if (!pts.length) pts.push(lo + 1);
-          return Promise.all(pts.map(function (x) { return has(abs(x)); })).then(function (oks) {
-            for (var r = 0; r < pts.length; r++) { if (oks[r]) lo = pts[r]; else { hi = pts[r]; break; } }
-            return round();
-          });
-        };
-        found[key] = has(abs(most)).then(function (ok) { return ok ? most : round(); })
-          .then(function (n) { found[key] = n; return n; }, function () { found[key] = 0; return 0; });
-      }
-      return Promise.resolve(found[key]).then(function (n) {
-        n = Math.min(n, most);
-        if (!n) return text;
-        var add = [];
-        for (var b = n; b >= 1; b--) { var u = pat.older(b); if (u) add.push('#EXTINF:' + avg.toFixed(3) + ',', u); }
-        var at = segs[0].at;
-        while (at > 0 && /^#EXT-X-PROGRAM-DATE-TIME/.test(lines[at - 1])) at--;
-        var out = lines.slice(0, at).concat(add, lines.slice(at)).join('\n');
-        return out.replace(/#EXT-X-MEDIA-SEQUENCE:\s*\d+/, '#EXT-X-MEDIA-SEQUENCE:' + (seq - add.length / 2));
-      });
+      var P = prep(text, url);
+      if (!P) return Promise.resolve(text);
+      return probe(P).then(function (n) { return n ? build(P, n) : text; }, function () { return text; });
     } catch (e) { return Promise.resolve(text); }
+  }
+  // answers right away: lengthened once the check has finished, unchanged (and the check started) before
+  function lengthenNow(text, url) {
+    try {
+      var P = prep(text, url);
+      if (!P) return text;
+      var n = found[P.key];
+      if (typeof n === 'number') return n ? build(P, n) : text;
+      probe(P);
+      return text;
+    } catch (e) { return text; }
+  }
+  function looksLikeList(t) { return typeof t === 'string' && t.slice(0, 64).indexOf('#EXTM3U') >= 0; }
+
+  /* the players' own downloads: any player that fetches its lists with XMLHttpRequest or fetch,
+     even one built into the site's own code, gets the lengthened list */
+  try {
+    var XP = XMLHttpRequest.prototype, xOpen = XP.open;
+    var textGet = Object.getOwnPropertyDescriptor(XP, 'responseText').get;   // the browser's own, before it's wrapped below
+    XP.open = function (m2, u) { this.__stvUrl = u; return xOpen.apply(this, arguments); };
+    ['responseText', 'response'].forEach(function (name) {
+      var d = Object.getOwnPropertyDescriptor(XP, name);
+      if (!d || !d.get) return;
+      Object.defineProperty(XP, name, {
+        configurable: true, enumerable: d.enumerable,
+        get: function () {
+          var v = d.get.call(this);
+          if (this.readyState !== 4 || !looksLikeList(v)) return v;
+          if (this.__stvIn === v) return this.__stvOut;
+          var u;
+          try { u = new URL(this.responseURL || this.__stvUrl, location.href).href; } catch (e) { u = this.responseURL || String(this.__stvUrl); }
+          this.__stvIn = v; this.__stvOut = lengthenNow(v, u);
+          return this.__stvOut;
+        }
+      });
+    });
+    /* the first time a list arrives, the player's "loaded" handlers wait for the check (about a second),
+       so the player starts with the long list. Players get confused if a list grows backwards later. */
+    var gate = function (x, run) {
+      if (x.readyState !== 4) return run();
+      if (x.__stvGate === undefined) {
+        x.__stvGate = null;
+        try {
+          var rt = x.responseType;
+          if (!rt || rt === 'text') {
+            var raw = textGet.call(x);
+            if (looksLikeList(raw)) {
+              var u2; try { u2 = new URL(x.responseURL || x.__stvUrl, location.href).href; } catch (e) { u2 = String(x.__stvUrl); }
+              var P = prep(raw, u2);
+              if (P && typeof found[P.key] !== 'number') { INFO.lists--; x.__stvGate = probe(P).catch(function () {}); }
+            }
+          }
+        } catch (e) {}
+      }
+      if (x.__stvGate) x.__stvGate.then(run); else run();
+    };
+    var EV = { load: 1, loadend: 1, readystatechange: 1 };
+    var wrapped = typeof WeakMap === 'function' ? new WeakMap() : null;
+    var wrapFn = function (fn) {
+      if (typeof fn !== 'function' || !wrapped) return fn;
+      var w = wrapped.get(fn);
+      if (!w) { w = function (ev) { var x = this; gate(x, function () { fn.call(x, ev); }); }; wrapped.set(fn, w); }
+      return w;
+    };
+    var xAdd = XP.addEventListener, xRemove = XP.removeEventListener;
+    XP.addEventListener = function (type, fn, o) { return xAdd.call(this, type, EV[type] ? wrapFn(fn) : fn, o); };
+    XP.removeEventListener = function (type, fn, o) { return xRemove.call(this, type, EV[type] && wrapped && wrapped.get(fn) || fn, o); };
+    [[XP, 'onreadystatechange'], [window.XMLHttpRequestEventTarget && XMLHttpRequestEventTarget.prototype, 'onload'],
+     [window.XMLHttpRequestEventTarget && XMLHttpRequestEventTarget.prototype, 'onloadend']].forEach(function (pair) {
+      var proto = pair[0], name = pair[1], d = proto && Object.getOwnPropertyDescriptor(proto, name);
+      if (!d || !d.set) return;
+      Object.defineProperty(proto, name, {
+        configurable: true, enumerable: d.enumerable,
+        get: function () { return this['__stv_' + name] || null; },
+        set: function (fn) { this['__stv_' + name] = fn; d.set.call(this, wrapFn(fn)); }
+      });
+    });
+  } catch (e) {}
+  if (rawFetch) {
+    try {
+      window.fetch = function (input, init) {
+        var p = rawFetch(input, init);
+        var u = typeof input === 'string' ? input : (input && input.url) || String(input);
+        return p.then(function (r) {
+          try {
+            var ct = (r.headers && r.headers.get('content-type')) || '';
+            if (!/mpegurl/i.test(ct) && !/\.m3u8/i.test(r.url || u)) return r;
+            return r.clone().text().then(function (t) {
+              if (!looksLikeList(t)) return r;
+              return lengthen(t, r.url || u).then(function (t2) {
+                if (t2 === t) return r;
+                var h = new Headers(r.headers); h.delete('content-length'); h.delete('content-encoding');
+                var out = new Response(t2, { status: r.status, statusText: r.statusText, headers: h });
+                try { Object.defineProperty(out, 'url', { value: r.url }); } catch (e) {}
+                return out;
+              });
+            }).catch(function () { return r; });
+          } catch (e) { return r; }
+        });
+      };
+    } catch (e) {}
   }
 
   function isDash(u, type) { return /\.mpd(\?|$)/i.test(String(u || '')) || /dash/i.test(String(type || '')); }
@@ -342,11 +477,22 @@
     return false;
   }
 
+  function playerKind() {
+    try {
+      if (!INFO.kind || INFO.kind === 'unknown') {
+        INFO.kind = window.videojs ? 'video.js' : window.jwplayer ? 'JW Player' : window.Clappr ? 'Clappr' : window.dashjs ? 'dash.js'
+          : window.flowplayer ? 'Flowplayer' : window.Plyr ? 'Plyr' : 'unknown';
+      }
+    } catch (e) {}
+    return INFO;
+  }
+
   function status(v) {
     if (!v) return { has: false };
-    var e = edges(v), live = !isFinite(v.duration) || v.duration > 86400 || engineLive(v);
+    var e = edges(v), live = !isFinite(v.duration) || v.duration > 86400 || engineLive(v) || !!INFO.live;
     return { has: true, paused: v.paused, muted: v.muted, t: v.currentTime, d: live ? null : v.duration,
-             live: live, behind: live ? Math.max(0, e[1] - v.currentTime) : 0, filled: filled === v, q: qualities(v) };
+             live: live, behind: live ? Math.max(0, e[1] - v.currentTime) : 0, filled: filled === v, q: qualities(v),
+             from: live ? Math.max(0, v.currentTime - e[0]) : 0, dvr: playerKind() };
   }
 
   function run(c, v) {
@@ -359,7 +505,8 @@
         v.currentTime = Math.max(e[0], Math.min(e[1] - 1, t));
         break;
       }
-      case 'start': { var e3 = edges(v); v.currentTime = e3[0] + 2; var p4 = v.play(); if (p4 && p4.catch) p4.catch(function () {}); break; }
+      // a little after the very first piece: some players jump to live if asked for a spot before it
+      case 'start': { var e3 = edges(v); v.currentTime = e3[0] + (e3[1] - e3[0] > 300 ? 20 : 2); var p4 = v.play(); if (p4 && p4.catch) p4.catch(function () {}); break; }
       case 'live': { var e2 = edges(v); v.currentTime = Math.max(e2[0], e2[1] - 3); var p3 = v.play(); if (p3 && p3.catch) p3.catch(function () {}); break; }
       // with a value these set the state; without one they flip it
       case 'mute': v.muted = typeof c.v === 'boolean' ? c.v : !v.muted; break;

@@ -90,9 +90,9 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081428"></script>
-<script src="tv/common.js?v=202611081428"></script>
-<script src="tv/boxscore.js?v=202611081428"></script>
+<script src="tv/tv-nav.js?v=202611081444"></script>
+<script src="tv/common.js?v=202611081444"></script>
+<script src="tv/boxscore.js?v=202611081444"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -329,7 +329,7 @@ function drawBar() {
   if (n > 1 && layout === 'focus' && sel !== big) h += ic('big', 'big', 'Make this game big');
   const st = t.st || {};
   if (st.has) h += ic('back60', 'back60', `${t.v.title}: back 1 minute`) + ic('fwd60', 'fwd60', `${t.v.title}: forward 1 minute`);
-  if (st.has && st.live) h += ic('start', 'start', `${t.v.title}: back to the start`);
+  if (st.has && st.live) h += ic('start', 'start', `${t.v.title}: ${STV.rewindNote(st)}`);
   if (st.has && st.live) { const at = !(st.behind > 15); h += `<button class="chip" type="button" data-a="live" aria-label="${at ? `${esc(t.v.title)} is at live` : `Jump ${esc(t.v.title)} to live`}"><i class="livedot${at ? ' on' : ''}"></i>LIVE${at ? '' : ` <span style="opacity:.7;font-weight:500">−${behind(st.behind)}</span>`}</button>`; }
   if (n > 1 && tiles.some(x => x.st && x.st.has && x.st.live)) h += `<button class="chip" type="button" data-a="liveall" aria-label="Jump every game to live">All live</button>`;
   h += ic('clean', 'fill', 'Fill tiles', clean ? 'on' : '');
