@@ -23,8 +23,8 @@
   /* ---------------- styles ---------------- */
   var CSS = [
     'html.tv{scroll-behavior:auto!important}',
-    '#tvring{position:fixed;z-index:2147483646;pointer-events:none;border:3px solid #FFD54A;border-radius:10px;',
-    'box-shadow:0 0 0 3px rgba(0,0,0,.6),0 0 24px rgba(255,213,74,.55);transition:top .1s,left .1s,width .1s,height .1s;display:none}',
+    '#tvring{position:fixed;left:0;top:0;z-index:2147483646;pointer-events:none;border:3px solid #FFD54A;border-radius:10px;',
+    'box-shadow:0 0 0 3px rgba(0,0,0,.65);will-change:transform;contain:strict;display:none}',
     '#tvtoast{position:fixed;z-index:2147483647;left:50%;bottom:28px;transform:translateX(-50%);background:rgba(10,14,22,.92);color:#fff;',
     'font:600 15px/1.3 system-ui,sans-serif;padding:10px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.18);pointer-events:none;opacity:0;transition:opacity .2s}',
     '#tvtoast.on{opacity:1}',
@@ -78,9 +78,22 @@
 
   /* ---------------- what can be focused ---------------- */
   var dirty = true, cache = { root: null, list: [] };
+  function ours(m) {
+    if (m.type !== 'attributes') return false;
+    if (m.target.id === 'tvring' || m.target.id === 'tvtoast') return true;
+    if (m.attributeName === 'tabindex') return m.target.getAttribute('tabindex') === '-1';
+    if (m.attributeName === 'class') {
+      var strip = function (v) { return (' ' + (v || '') + ' ').replace(/ tvf /g, ' ').trim(); };
+      return strip(m.oldValue) === strip(m.target.getAttribute('class'));
+    }
+    return false;
+  }
   try {
-    new MutationObserver(function () { dirty = true; })
-      .observe(D.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'style', 'disabled', 'tabindex'] });
+    new MutationObserver(function (list) {
+      if (dirty) return;
+      for (var i = 0; i < list.length; i++) if (!ours(list[i])) { dirty = true; return; }
+    }).observe(D.documentElement, { subtree: true, childList: true, attributes: true, attributeOldValue: true,
+                                    attributeFilter: ['class', 'hidden', 'style', 'disabled', 'tabindex'] });
   } catch (e) {}
 
   function scan(root) {
@@ -144,17 +157,22 @@
   function drawRing() {
     if (!ring) return;
     var el = focused;
-    if (!el || !el.isConnected || !shown(el)) { ring.style.display = 'none'; return; }
+    if (!el || !el.isConnected || !shown(el)) { ring.style.display = 'none'; ring.__k = ''; return; }
     var r = rectOf(el);
-    if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { ring.style.display = 'none'; return; }
-    var g = 4;
-    ring.style.display = 'block';
-    ring.style.left = (r.left - g) + 'px';
-    ring.style.top = (r.top - g) + 'px';
-    ring.style.width = (r.width + g * 2) + 'px';
-    ring.style.height = (r.height + g * 2) + 'px';
-    var br = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 6;
-    ring.style.borderRadius = Math.min(br + g, 24) + 'px';
+    if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { ring.style.display = 'none'; ring.__k = ''; return; }
+    var g = 4, x = Math.round(r.left - g), y = Math.round(r.top - g), w = Math.round(r.width + g * 2), h = Math.round(r.height + g * 2);
+    var key = x + ',' + y + ',' + w + ',' + h;
+    if (ring.style.display !== 'block') ring.style.display = 'block';
+    if (ring.__k === key) return;      // nothing moved: leave the ring alone
+    ring.__k = key;
+    ring.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
+    ring.style.width = w + 'px';
+    ring.style.height = h + 'px';
+    if (ring.__el !== el) {
+      ring.__el = el;
+      var br = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 6;
+      ring.style.borderRadius = Math.min(br + g, 24) + 'px';
+    }
   }
   function toast(msg, ms) {
     if (!toastEl) return;
@@ -415,7 +433,12 @@
     mirrorHover();
     setTimeout(mirrorHover, 2500);
     W.addEventListener('keydown', onKey, false);
-    W.addEventListener('scroll', function () { drawRing(); }, { capture: true, passive: true });
+    var rafPending = false;
+    W.addEventListener('scroll', function () {
+      if (rafPending) return;
+      rafPending = true;
+      requestAnimationFrame(function () { rafPending = false; drawRing(); });
+    }, { capture: true, passive: true });
     W.addEventListener('resize', function () { dirty = true; drawRing(); });
     // a mouse or touch tap moves the ring there too
     D.addEventListener('pointerdown', function (e) {

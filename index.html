@@ -32,18 +32,6 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02e
   font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
 .iconbtn:hover{background:var(--panel2);color:var(--ink)}
 
-/* sport tiles */
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-.tile{position:relative;height:104px;border-radius:16px;padding:14px 16px;background:var(--panel);border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
-.tile::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--c)}
-.tile::after{content:"";position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:var(--c);opacity:.12}
-.tile h2{font-size:30px;text-transform:uppercase;letter-spacing:.05em}
-.tile p{margin:2px 0 0;color:var(--ink2);font-size:14px}
-.tile:hover{background:var(--panel2)}
-.tile.soon{opacity:.5}
-.tile .badge{position:absolute;top:12px;right:14px;font-family:var(--display);font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
-.tile .badge.live{color:var(--live)}
-
 /* scoreboard bar */
 .bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .bar h3{font-size:22px;text-transform:uppercase;letter-spacing:.08em;margin-right:6px}
@@ -122,7 +110,6 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
   <button class="iconbtn" id="setbtn" type="button">⚙ Settings</button>
 </header>
 
-<section class="tiles" id="tiles"></section>
 
 <div class="bar">
   <h3>Games</h3>
@@ -294,14 +281,6 @@ function redzoneCard(ev) {
     <h4>RedZone</h4><p>Every touchdown from every game</p></button>`;
 }
 function liveCount(s) { return (cache[s + ':' + ymd(state.date)]?.events || []).filter(g => g.state === 'in').length; }
-function renderTiles() {
-  $('tiles').innerHTML = ORDER.map(k => {
-    const a = SPORTS[k], live = a.app ? liveCount(k) : 0;
-    return `<button class="tile${a.app ? '' : ' soon'}" type="button" data-app="${k}" style="--c:var(--${k})">
-      <span class="badge${live ? ' live' : ''}">${a.app ? (live ? `● ${live} live` : 'Open') : 'Soon'}</span>
-      <h2>${esc(a.name)}</h2><p>${esc(a.blurb)}</p></button>`;
-  }).join('');
-}
 function renderBar() {
   $('filters').innerHTML = ['all', ...ACTIVE].map(k =>
     `<button class="chip${S.filter === k ? ' on' : ''}" type="button" data-f="${k}">${k === 'all' ? 'All' : esc(SPORTS[k].name)}${k !== 'all' && liveCount(k) ? '<span class="dot"></span>' : ''}</button>`).join('');
@@ -334,7 +313,7 @@ function renderGames() {
   if (had) { const el = document.querySelector(`[data-g="${had}"]`); if (el && nav()) nav().focus(el, { noScroll: true }); }
   $('foot').textContent = state.updated ? `Updated ${state.updated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ESPN` : '';
 }
-function render() { renderTiles(); renderBar(); renderGames(); }
+function render() { renderBar(); renderGames(); }
 function findGame(key) {
   const [s, id] = key.split(':');
   if (key === 'nfl:redzone') return redzoneGame();
@@ -521,11 +500,6 @@ $('sf-save').onclick = () => {
 };
 
 /* ---------- controls ---------- */
-$('tiles').addEventListener('click', e => {
-  const t = e.target.closest('[data-app]'); if (!t) return;
-  const a = SPORTS[t.dataset.app];
-  if (a.app) location.href = a.app; else nav() && nav().toast(`${a.name} is coming soon`);
-});
 $('filters').addEventListener('click', e => {
   const b = e.target.closest('[data-f]'); if (!b) return;
   S.filter = b.dataset.f; STV.saveSettings(S); render(); refocus(`[data-f="${S.filter}"]`);
@@ -542,8 +516,8 @@ function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { h
 tick(); setInterval(tick, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
 load();
-// start on the first game if there is one, otherwise the first app
-setTimeout(() => { const el = document.querySelector('.game') || document.querySelector('.tile'); if (el && nav()) nav().focus(el); }, 1200);
+// start on the first game if there is one, otherwise the sport filter
+setTimeout(() => { const el = document.querySelector('.game') || document.querySelector('#filters .chip.on'); if (el && nav()) nav().focus(el); }, 1200);
 </script>
 </body>
 </html>

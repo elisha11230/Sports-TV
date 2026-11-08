@@ -6,7 +6,7 @@ Your NBA and NFL apps on a Fire TV, run from the remote. College football and ML
 
 | Piece | What it does |
 |---|---|
-| `index.html` | The TV home screen: a tile for each sport, the day's games (scores hidden until you choose), and Settings. |
+| `index.html` | The TV home screen: the day's games (scores hidden until you choose), RedZone, multiview and Settings. |
 | `player.html` | Full screen player for a game, using the stream sources you set up. |
 | `multi.html` | Multiview: up to four games at once. |
 | `tv/tv-nav.js` | The remote layer. Arrow keys move a highlight to the nearest item, Select clicks it, Back closes the top panel. The Fire TV app adds it to every page, so the NBA and NFL apps work from the remote with no changes to them. |
@@ -82,7 +82,7 @@ On days with NFL games a RedZone card leads the NFL list. It plays from the same
 
 ## Adding a sport
 
-In `index.html`, fill in the sport's `app` address (and its `link` for opening a game) in `SPORTS`. Its tile turns on and its games show on the home screen.
+In `index.html`, fill in the sport's `app` address (and its `link` for opening a game) in `SPORTS`. Its games then show on the home screen.
 
 ## Trying it on a computer
 
