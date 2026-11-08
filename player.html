@@ -33,15 +33,23 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .hint b{color:var(--ink);font-weight:600}
 #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
 #msg[hidden]{display:none}
+
+/* phones: a button to open the controls (taps on the video go to the video itself) */
+#fab{display:none;position:fixed;right:14px;bottom:14px;z-index:15;width:46px;height:46px;border-radius:50%;
+  background:rgba(10,17,30,.72);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;line-height:1}
+html.dev-phone #fab{display:flex;align-items:center;justify-content:center}
+html.dev-phone #bar{padding:10px 12px 22px}
+html.dev-phone .ic{width:38px;height:38px}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081322"></script>
-<script src="tv/common.js?v=202611081322"></script>
-<script src="tv/boxscore.js?v=202611081322"></script>
+<script src="tv/tv-nav.js?v=202611081333"></script>
+<script src="tv/common.js?v=202611081333"></script>
+<script src="tv/boxscore.js?v=202611081333"></script>
 </head>
 <body>
 <div id="stage"></div>
 <div id="msg" hidden></div>
+<button id="fab" type="button" aria-label="Controls">⋯</button>
 <div id="bar" role="dialog" aria-modal="true" aria-label="Player controls">
   <div class="ttl"><h1 id="ttl"></h1><span id="srcname"></span></div>
   <div class="chips" id="chips"></div>
@@ -334,6 +342,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen())
   showBar(5000);
 })();
 addEventListener('pagehide', () => { stop(); if (bridge) bridge.call('keepAwake', false); });
+
+/* phones: the controls button, and turning the phone sideways while watching */
+$('fab').onclick = () => { barOpen() ? hideBar() : showBar(); };
+if (STV.phone && STV.bridge) {
+  STV.bridge.call('orientation', 'landscape');
+  addEventListener('pagehide', () => STV.bridge.call('orientation', 'auto'));
+}
 </script>
 </body>
 </html>

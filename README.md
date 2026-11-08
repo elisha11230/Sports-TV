@@ -19,6 +19,10 @@ Your NBA and NFL apps on a Fire TV, run from the remote. College football and ML
 
 The app loads these pages from GitHub Pages, so changes to the pages (and the NBA and NFL apps' data updates) reach the TV without reinstalling. The APK only needs rebuilding when something in `android/` changes.
 
+## Phones
+
+The same APK runs on Android phones. On a phone the app turns freely (the player and multiview turn sideways), the NBA and NFL apps run as their normal phone versions without the TV remote layer, pages use phone layouts, and a ⋯ button in the player and multiview opens the controls. In multiview, tap a game's label to give it the sound. Install it by opening the download link on the phone and allowing the browser to install apps.
+
 ## One time setup
 
 1. **GitHub Pages:** repo Settings, Pages, deploy from the `main` branch, `/ (root)`. The site lives at `https://elisha11230.github.io/Sports-TV/`.

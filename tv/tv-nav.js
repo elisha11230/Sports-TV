@@ -136,6 +136,7 @@
 
   /* ---------------- focus and the ring ---------------- */
   var focused = null, ring, toastEl, toastT;
+  var touching = false;   // after a tap the ring stays hidden until a key is pressed
   function setFocus(el, opts) {
     if (!el) return;
     if (focused && focused !== el) focused.classList.remove('tvf');
@@ -158,6 +159,7 @@
   function drawRing() {
     if (!ring) return;
     var el = focused;
+    if (touching) { ring.style.display = 'none'; ring.__k = ''; return; }
     if (!el || !el.isConnected || !shown(el) || (curLayer && !curLayer.contains(el))) { ring.style.display = 'none'; ring.__k = ''; return; }
     var r = rectOf(el);
     if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { ring.style.display = 'none'; ring.__k = ''; return; }
@@ -371,6 +373,7 @@
   var KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Up: 'up', Down: 'down', Left: 'left', Right: 'right' };
   var CODES = { 19: 'up', 20: 'down', 21: 'left', 22: 'right', 38: 'up', 40: 'down', 37: 'left', 39: 'right' };
   function onKey(e) {
+    if (touching) { touching = false; drawRing(); }
     if (e.defaultPrevented) return;
     var dir = KEYS[e.key] || CODES[e.keyCode];
     var t = D.activeElement;
@@ -460,10 +463,12 @@
     W.addEventListener('resize', function () { dirty = true; drawRing(); });
     // a mouse or touch tap moves the ring there too
     D.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') { touching = true; drawRing(); return; }
       var root = topLayer() || D.body, list = candidates(root), n = e.target;
       while (n && n !== D.body) { if (list.indexOf(n) >= 0) { setFocus(n, { noScroll: true }); break; } n = n.parentElement; }
     }, true);
     setInterval(function () { checkLayer(); drawRing(); }, 300);
+    if (W.__STV_DEVICE === 'phone') touching = true;   // phones start in touch mode
     setTimeout(function () { if (!focused) { var L = topLayer(); focusFirst(L || D.body); } }, 900);
   }
 

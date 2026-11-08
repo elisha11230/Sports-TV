@@ -99,11 +99,26 @@ input.t:focus{border-color:var(--gold)}
 code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#CFE0FF}
 .row2{display:flex;gap:10px;margin-top:16px}
 .applist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+
+/* ---------- phones ---------- */
+html.dev-phone body{padding:12px 12px 30px}
+html.dev-phone .top{flex-wrap:wrap;gap:8px;margin-bottom:12px}
+html.dev-phone .top .sp{display:none}
+html.dev-phone .brand{font-size:24px;flex:1}
+html.dev-phone .clock{display:none}
+html.dev-phone .iconbtn{padding:7px 11px;font-size:14px}
+html.dev-phone .bar h3{display:none}
+html.dev-phone .datebox{margin-left:0;width:100%;justify-content:space-between}
+html.dev-phone .datebox .day{min-width:0;flex:1}
+html.dev-phone .games{grid-template-columns:1fr 1fr;gap:8px}
+html.dev-phone .layer{padding:10px}
+html.dev-phone .sheet{padding:16px}
+@media (max-width:560px){ html.dev-phone .games{grid-template-columns:1fr} }
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081322"></script>
-<script src="tv/boxscore.js?v=202611081322"></script>
-<script src="tv/common.js?v=202611081322"></script>
+<script src="tv/tv-nav.js?v=202611081333"></script>
+<script src="tv/boxscore.js?v=202611081333"></script>
+<script src="tv/common.js?v=202611081333"></script>
 </head>
 <body>
 <header class="top">

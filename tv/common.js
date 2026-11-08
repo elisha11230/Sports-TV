@@ -5,6 +5,14 @@ window.STV = (function () {
   var here = (document.currentScript && document.currentScript.src) || location.href;
   var REPO_SOURCES = new URL('../sources.json', here).href;
 
+  /* ---------- TV or phone ----------
+     The app says which it is; in a browser, a touch screen counts as a phone. Pages style themselves
+     with html.dev-tv / html.dev-phone. */
+  var DEVICE = window.__STV_DEVICE || (/SportsTV\/\S+ Phone/.test(navigator.userAgent) ? 'phone'
+    : /SportsTV\//.test(navigator.userAgent) ? 'tv'
+    : (window.matchMedia && matchMedia('(pointer: coarse)').matches ? 'phone' : 'tv'));
+  document.documentElement.classList.add('dev-' + DEVICE);
+
   var store = {
     get: function (k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -152,6 +160,6 @@ window.STV = (function () {
   return {
     store: store, settings: settings, saveSettings: saveSettings,
     localSources: localSources, saveLocalSources: saveLocalSources, repoSources: repoSources,
-    sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon
+    device: DEVICE, phone: DEVICE === 'phone', sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon
   };
 })();

@@ -46,7 +46,9 @@ window.BOX = (function () {
     '#boxp .g{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 0;border-top:1px solid rgba(255,255,255,.07);font-size:14px}' +
     '#boxp .g .s{font-weight:700;text-align:right}' +
     '#boxp .g .d{grid-column:1/-1;font-size:11px;color:#A7B4CA}' +
-    '#boxp .g .d.live{color:#FF6B6B}';
+    '#boxp .g .d.live{color:#FF6B6B}' +
+    // phones: the panel takes the whole width
+    '@media (max-width:700px){#boxp{width:100vw;background:rgba(6,10,18,.95)}#boxp .bh,#boxp .bt,#boxp .bb{padding-left:16px}}';
 
   var el = null, game = null, timer = null, side = 1, last = null;
 

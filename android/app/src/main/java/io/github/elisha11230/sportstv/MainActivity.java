@@ -8,6 +8,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.pm.ActivityInfo;
+import android.app.UiModeManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
@@ -63,6 +66,10 @@ public class MainActivity extends Activity {
     static final String HOME = ORIGIN + "/Sports-TV/";
 
     // adds tv-nav.js to a page (once); it refreshes from the site every hour
+    static String loader(boolean tv) {
+        return "(function(){window.__STV_DEVICE='" + (tv ? "tv" : "phone") + "';" +
+            (tv ? LOADER : "window.__STV_SHELL=1;") + "})();";
+    }
     static final String LOADER =
         "(function(){if(window.__stvLoader)return;window.__stvLoader=1;window.__STV_SHELL=1;" +
         "function go(){if(window.__tvNav)return;var s=document.createElement('script');" +
@@ -88,6 +95,7 @@ public class MainActivity extends Activity {
     WebChromeClient.CustomViewCallback fullCallback;
     SharedPreferences prefs;
     boolean docStartScript = false;
+    boolean isTv = true;
     // made fresh each launch; only the player page gets it, and embedded players obey only commands carrying it
     final String frameKey = UUID.randomUUID().toString();
     long lastBackAtHome = 0;
@@ -102,6 +110,12 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         prefs = getSharedPreferences("stv", MODE_PRIVATE);
+        // a TV (Fire TV, Android TV) gets the remote layout; a phone or tablet gets touch and free rotation
+        UiModeManager ui = (UiModeManager) getSystemService(Context.UI_MODE_SERVICE);
+        isTv = (ui != null && ui.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION)
+            || getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+            || getPackageManager().hasSystemFeature("amazon.hardware.fire_tv");
+        setRequestedOrientation(isTv ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_FULL_USER);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
         root = new FrameLayout(this);
@@ -123,14 +137,14 @@ public class MainActivity extends Activity {
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         s.setTextZoom(prefs.getInt("textZoom", 100));
-        s.setUserAgentString(s.getUserAgentString() + " SportsTV/" + BuildConfig.VERSION_NAME);
+        s.setUserAgentString(s.getUserAgentString() + " SportsTV/" + BuildConfig.VERSION_NAME + (isTv ? " TV" : " Phone"));
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
         Set<String> origins = Collections.singleton(ORIGIN);
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             try {
-                WebViewCompat.addDocumentStartJavaScript(web, LOADER, origins);
+                WebViewCompat.addDocumentStartJavaScript(web, loader(isTv), origins);
                 docStartScript = true;
             } catch (Exception e) { Log.w(TAG, "document start script", e); }
         }
@@ -238,6 +252,15 @@ public class MainActivity extends Activity {
                 case "build": r = BuildConfig.VERSION_CODE; break;
                 case "checkUpdate": runOnUiThread(() -> updater.checkNow()); r = true; break;
                 case "allowNav": allowedNav = a.optString(0, null); r = true; break;
+                case "device": r = isTv ? "tv" : "phone"; break;
+                case "orientation": {
+                    // the player and multiview turn a phone sideways; other pages rotate freely
+                    if (isTv) { r = false; break; }
+                    String o = a.optString(0, "auto");
+                    final int req = "landscape".equals(o) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_FULL_USER;
+                    runOnUiThread(() -> setRequestedOrientation(req));
+                    r = true; break;
+                }
                 case "frameKey": r = docStartScript ? frameKey : JSONObject.NULL; break;
                 case "launchApp": r = launchApp(a.optString(0)); break;
                 case "listApps": r = listApps(); break;
@@ -388,7 +411,7 @@ public class MainActivity extends Activity {
         @Override
         public void onPageFinished(WebView view, String url) {
             // pages from other sites, and older web views, get the remote layer here
-            if (url != null && url.startsWith("http")) view.evaluateJavascript(LOADER, null);
+            if (url != null && url.startsWith("http")) view.evaluateJavascript(loader(isTv), null);
         }
 
         @Override

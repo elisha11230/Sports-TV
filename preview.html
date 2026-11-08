@@ -59,10 +59,20 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.03e
 .note{color:var(--ink2);font-size:14px}
 .ser{font-size:15px}
 #msg{color:var(--ink2);padding:40px 0;text-align:center}
+
+/* ---------- phones ---------- */
+html.dev-phone body{padding:12px 12px 30px}
+@media (max-width:760px){
+  .match{grid-template-columns:1fr;text-align:center;padding:14px}
+  .team,.team.r{justify-content:center;flex-direction:row;text-align:left}
+  .grid,.two{grid-template-columns:1fr}
+  .odds{flex-wrap:wrap}
+  .top{flex-wrap:wrap}
+}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081322"></script>
-<script src="tv/common.js?v=202611081322"></script>
+<script src="tv/tv-nav.js?v=202611081333"></script>
+<script src="tv/common.js?v=202611081333"></script>
 </head>
 <body>
 <div class="top"><div class="k">Game preview</div><button class="btn primary" id="watch" type="button" hidden>▶ Watch game</button><button class="btn" id="back" type="button">Back to games</button></div>

@@ -28,6 +28,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
   background:rgba(0,0,0,.7);font-size:13px;font-weight:600;pointer-events:none;opacity:.55;transition:opacity .2s}
 .tile.sel .cap,.tile.aud .cap{opacity:1}
 .cap .st{color:var(--ink2);font-weight:500}
+html.dev-phone .cap{pointer-events:auto;opacity:.85;padding:6px 12px}
 .cap .sp{display:none;color:var(--gold)}
 .tile.aud .cap .sp{display:inline}
 .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--ink2);font-size:15px}
@@ -69,15 +70,23 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #pick .row{margin-top:12px}
 #msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
 #msg[hidden]{display:none}
+
+/* phones: a button to open the controls (taps on the video go to the video itself) */
+#fab{display:none;position:fixed;right:14px;bottom:14px;z-index:15;width:46px;height:46px;border-radius:50%;
+  background:rgba(10,17,30,.72);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:22px;line-height:1}
+html.dev-phone #fab{display:flex;align-items:center;justify-content:center}
+html.dev-phone #bar{padding:10px 12px 22px}
+html.dev-phone .ic{width:38px;height:38px}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081322"></script>
-<script src="tv/common.js?v=202611081322"></script>
-<script src="tv/boxscore.js?v=202611081322"></script>
+<script src="tv/tv-nav.js?v=202611081333"></script>
+<script src="tv/common.js?v=202611081333"></script>
+<script src="tv/boxscore.js?v=202611081333"></script>
 </head>
 <body>
 <div id="grid"></div>
 <div id="msg" hidden></div>
+<button id="fab" type="button" aria-label="Controls">⋯</button>
 <div id="pick" role="dialog" aria-modal="true" aria-label="Pick a game" hidden>
   <div class="pk"><h2 id="pkt">Add a game</h2><p class="sub" id="pks"></p><div class="pkl" id="pkl"></div>
   <div class="row"><button class="chip" type="button" id="pkx">Cancel</button></div></div>
@@ -127,6 +136,12 @@ function videoDoc(url) {
     `</body>`;
 }
 const behind = s => { s = Math.round(s); const m = Math.floor(s / 60); return m ? `${m}:${String(s % 60).padStart(2, '0')}` : `${s}s`; };
+// phones: tapping a game's label selects it and moves the sound there
+$('grid').addEventListener('click', e => {
+  const cap = e.target.closest('.cap'); if (!cap) return;
+  const i = [...$('grid').children].indexOf(cap.closest('.tile'));
+  if (i >= 0) { sel = i; setAudio(i); }
+});
 function tileEl(i) { return $('grid').children[i]; }
 const tileInner = t => `${frameFor(t)}<div class="cap"><span class="sp">🔊</span><b>${esc(t.v.title)}</b><span class="st"></span></div>`;
 function build() {
@@ -490,6 +505,13 @@ $('pkl').addEventListener('click', async e => {
   nav() && nav().toast('Arrows move to a game and its sound · Menu for options', 4000);
 })();
 addEventListener('pagehide', () => { if (bridge) bridge.call('keepAwake', false); });
+
+/* phones: the controls button, and turning the phone sideways while watching */
+$('fab').onclick = () => { barOpen() ? hideBar() : showBar(); };
+if (STV.phone && STV.bridge) {
+  STV.bridge.call('orientation', 'landscape');
+  addEventListener('pagehide', () => STV.bridge.call('orientation', 'auto'));
+}
 </script>
 </body>
 </html>
