@@ -169,6 +169,7 @@ window.STV = (function () {
       short: 'stream list too short to read',
       format: 'stream list format not supported (' + (d.tags || '') + ')',
       byterange: 'the stream uses byte ranges of one file',
+      signed: 'this site signs every video part\'s address, so only what you\'ve watched here can be replayed',
       keys: 'the stream changes its encryption key as it goes',
       disc: 'the stream marks a break on every part and has no break count'
     }[d.why] || (d.why || 'unknown');

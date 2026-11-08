@@ -177,9 +177,14 @@
     var discs = segs.filter(function (x) { return x.disc; }).length;
     var discEach = discs >= segs.length - 1 && discs > 0;
     var pat = pattern(segs.map(function (x) { return x.uri; }));
+    if (!pat && segs.every(function (x) { return /[?&](signature|sig|token|hdnts|policy|expires|md5|hash)=/i.test(x.uri); })) {
+      // each address carries its own signature from the site's server; older ones can't be made up
+      INFO.why = 'signed'; INFO.sample = '';
+      return null;
+    }
     if (!pat) {
       INFO.why = 'names';
-      INFO.sample = segs.slice(-2).map(function (x) { return x.uri.split('/').pop().slice(-48); }).join('  ');
+      INFO.sample = segs.slice(-2).map(function (x) { return x.uri.split('?')[0].split('/').pop().slice(-40); }).join('  ');
       return null;
     }
     var avg = segs.reduce(function (a2, x) { return a2 + x.dur; }, 0) / segs.length;
