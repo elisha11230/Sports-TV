@@ -46,6 +46,7 @@ let G = {}; try { G = JSON.parse(q.get('g') || '{}'); } catch (e) {}
 const nav = () => window.__tvNav;
 const bridge = STV.bridge;
 let sources = [], cur = -1, hideT = null, hls = null;
+let KEY = null, ctl = null, pollT = null;   // remote control of an embedded player (Fire TV app only)
 
 function message(t) { $('msg').innerHTML = t; $('msg').hidden = !t; }
 function showBar(ms) {
@@ -63,6 +64,7 @@ const barOpen = () => !$('bar').classList.contains('off');
 function stop() {
   if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
   $('stage').innerHTML = '';
+  ctl = null; clearInterval(pollT);
 }
 function loadScript(src) {
   return new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
@@ -97,10 +99,15 @@ async function play(i) {
     v.play().catch(() => {});
   } else {
     const f = document.createElement('iframe');
+    // no popups, no redirecting the app, unless this source has popup blocking turned off
+    if (s.sandbox !== false) f.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock');
     f.src = url;
     f.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
     f.allowFullscreen = true;
     $('stage').appendChild(f);
+    ctl = null;
+    f.addEventListener('load', () => setTimeout(() => send('status'), 800));
+    startPoll();
   }
 }
 function drawBar() {
@@ -108,21 +115,82 @@ function drawBar() {
   $('ttl').textContent = G.title || 'Watch';
   $('srcname').textContent = s ? s.name : '';
   let html = sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}">${esc(x.name)}</button>`).join('');
-  if (s && s.type === 'embed') html += `<button class="chip" type="button" data-act="tap">▶ Press play</button><button class="chip" type="button" data-act="full">Open full page</button>`;
+  if (s && s.type === 'embed') {
+    if (KEY) html += `<button class="chip" type="button" data-act="pp">${ctl && ctl.has && !ctl.paused ? '❚❚ Pause' : '▶ Play'}</button>`
+      + `<button class="chip" type="button" data-act="back10">⟲ 10s</button><button class="chip" type="button" data-act="fwd10">10s ⟳</button>`
+      + (ctl && ctl.live ? `<button class="chip" type="button" data-act="live">● Go live</button>` : '')
+      + `<button class="chip" type="button" data-act="mute">${ctl && ctl.muted ? 'Unmute' : 'Mute'}</button>`
+      + `<button class="chip${ctl && ctl.filled ? ' on' : ''}" type="button" data-act="fill">Fill screen</button>`;
+    html += `<button class="chip" type="button" data-act="tap">Tap player</button><button class="chip" type="button" data-act="full">Open full page</button>`;
+  }
   if (s && s.type === 'video') html += `<button class="chip" type="button" data-act="pp">Play / pause</button>`;
   html += `<button class="chip" type="button" data-act="back">Back to games</button>`;
   $('chips').innerHTML = html;
-  $('hint').textContent = s && s.type === 'video'
-    ? 'Select plays or pauses · Left and right skip 10 seconds · Back closes this bar'
-    : 'Menu or any arrow shows this bar · Press play clicks the middle of the player · Back closes this bar';
+  $('hint').textContent = hintText(s);
 }
+function fmt(t) {
+  t = Math.max(0, Math.floor(t || 0));
+  const h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, x = t % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+}
+function hintText(s) {
+  if (!s) return '';
+  if (s.type === 'video') return 'Select plays or pauses · Left and right skip 10 seconds · Back closes this bar';
+  if (!KEY) return 'Remote control of this player works in the Fire TV app · Back closes this bar';
+  if (!ctl || !ctl.has) return 'Looking for the video… if it needs a click to start, use Tap player · Back closes this bar';
+  const where = ctl.live ? (ctl.behind > 15 ? `${fmt(ctl.behind)} behind live` : 'Live') : `${fmt(ctl.t)} / ${fmt(ctl.d)}`;
+  return `Remote connected · ${ctl.paused ? 'Paused' : 'Playing'} · ${where} · With this bar closed: Select plays or pauses, left and right skip 10 seconds`;
+}
+
+/* ---------- commands to an embedded player ----------
+   The Fire TV app puts a small script inside the embed; it answers only commands carrying this
+   session's key, and replies with the video's status. */
+function send(a, v) {
+  const f = document.querySelector('#stage iframe');
+  if (!f || !KEY || !f.contentWindow) return false;
+  try { f.contentWindow.postMessage({ stv: 'cmd', key: KEY, a, v }, '*'); } catch (e) { return false; }
+  return true;
+}
+function startPoll() { clearInterval(pollT); pollT = setInterval(() => { if (!document.hidden) send('status'); }, 2500); }
+window.addEventListener('message', e => {
+  const d = e.data, f = document.querySelector('#stage iframe');
+  if (!d || d.stv !== 'status' || !KEY || d.key !== KEY || !f || e.source !== f.contentWindow) return;
+  if (!d.s || !d.s.has) { if (!ctl) return; }
+  const was = ctl;
+  ctl = d.s;
+  // redraw the buttons only when their labels change, so the remote keeps its place
+  const sig = c => c ? [c.has, c.paused, c.muted, c.live, c.filled].join() : '';
+  if (sig(was) !== sig(ctl) && barOpen()) {
+    const f2 = nav() && nav().focused(), act = f2 && f2.dataset ? f2.dataset.act || f2.dataset.i : null;
+    drawBar();
+    if (act != null) { const el = $('chips').querySelector(`[data-act="${act}"],[data-i="${act}"]`); if (el && nav()) nav().focus(el, { noScroll: true }); }
+  } else $('hint').textContent = hintText(sources[cur]);
+});
+function control(a) {
+  const s = sources[cur]; if (!s) return;
+  if (s.type === 'video') {
+    const v = document.querySelector('video'); if (!v) return;
+    if (a === 'pp') v.paused ? v.play() : v.pause();
+    else if (a === 'back10') v.currentTime = Math.max(0, v.currentTime - 10);
+    else if (a === 'fwd10') v.currentTime += 10;
+    return;
+  }
+  const map = { pp: ['playpause'], back10: ['seek', -10], fwd10: ['seek', 10], live: ['live'], mute: ['mute'], fill: ['fill'] };
+  if (map[a]) send(map[a][0], map[a][1]);
+}
+
 $('chips').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.i != null) { play(+b.dataset.i); showBar(); return; }
   const a = b.dataset.act;
   if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
+  else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur] && sources[cur].type === 'embed') { control(a); showBar(); }
   else if (a === 'tap') { hideBar(); setTimeout(() => { if (bridge) bridge.call('tap', 0.5, 0.5); else nav() && nav().toast('Click the player with a mouse here'); }, 350); }
-  else if (a === 'full') { const s = sources[cur]; if (s) location.href = STV.fill(s.url, G, s.codes); }
+  else if (a === 'full') {
+    const s = sources[cur]; if (!s) return;
+    const url = STV.fill(s.url, G, s.codes);
+    (bridge ? bridge.call('allowNav', url) : Promise.resolve()).then(() => { location.href = url; });
+  }
   else if (a === 'pp') { const v = document.querySelector('video'); if (v) v.paused ? v.play() : v.pause(); }
 });
 
@@ -130,15 +198,20 @@ $('chips').addEventListener('click', e => {
 // with the bar hidden, a key brings it back instead of moving focus (video keys still work)
 window.addEventListener('keydown', e => {
   if (barOpen()) { showBar(); return; }   // any key keeps the bar up a little longer
-  const v = document.querySelector('video');
-  const k = e.key;
-  if (v && (k === 'Enter' || e.keyCode === 23)) { v.paused ? v.play() : v.pause(); }
-  else if (v && k === 'ArrowLeft') v.currentTime = Math.max(0, v.currentTime - 10);
-  else if (v && k === 'ArrowRight') v.currentTime += 10;
+  const k = e.key, s = sources[cur];
+  const can = s && (s.type === 'video' || (s.type === 'embed' && KEY && ctl && ctl.has));
+  if (can && (k === 'Enter' || e.keyCode === 23)) control('pp');
+  else if (can && k === 'ArrowLeft') control('back10');
+  else if (can && k === 'ArrowRight') control('fwd10');
   else if (k === 'Backspace' || k === 'Escape') return;
   else showBar();
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
+window.__tvMedia = a => {
+  const m = { playpause: 'pp', play: 'pp', pause: 'pp', ff: 'fwd10', rw: 'back10' };
+  if (m[a]) control(m[a]);
+  return true;
+};
 window.__tvMenu = () => { barOpen() ? hideBar() : showBar(); return true; };
 window.__tvBackHook = () => {
   if (barOpen() && sources[cur]) { hideBar(); return true; }
@@ -149,7 +222,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen())
 
 /* ---------- start ---------- */
 (async function () {
-  if (bridge) bridge.call('keepAwake', true);
+  if (bridge) { bridge.call('keepAwake', true); KEY = await bridge.call('frameKey'); }
   sources = (await STV.sourcesFor(G.sport)).filter(s => s.type !== 'app');
   if (!sources.length) { message('No stream sources are set up for this sport.<br>Add one in Settings on the home screen.'); drawBar(); showBar(0); return; }
   const want = sources.findIndex(s => s.id === q.get('s'));

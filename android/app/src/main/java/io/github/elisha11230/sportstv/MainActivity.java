@@ -44,6 +44,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 
 /**
  * Press Box TV: a full screen web view of the sports pages on GitHub Pages, set up for a TV remote.
@@ -85,7 +88,13 @@ public class MainActivity extends Activity {
     WebChromeClient.CustomViewCallback fullCallback;
     SharedPreferences prefs;
     boolean docStartScript = false;
+    // made fresh each launch; only the player page gets it, and embedded players obey only commands carrying it
+    final String frameKey = UUID.randomUUID().toString();
     long lastBackAtHome = 0;
+    // the one outside address the player page may send the whole app to ("Open full page")
+    volatile String allowedNav = null;
+
+    boolean onPlayer() { String u = web.getUrl(); return u != null && u.startsWith(HOME) && u.contains("player.html"); }
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -108,7 +117,8 @@ public class MainActivity extends Activity {
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setUseWideViewPort(true);
         s.setLoadWithOverviewMode(false);
-        s.setSupportMultipleWindows(false);          // links that open a new tab load here instead
+        // new windows go through onCreateWindow below: popups are dropped, a link our apps open in a new tab loads here
+        s.setSupportMultipleWindows(true);
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         s.setTextZoom(prefs.getInt("textZoom", 100));
@@ -122,6 +132,14 @@ public class MainActivity extends Activity {
                 WebViewCompat.addDocumentStartJavaScript(web, LOADER, origins);
                 docStartScript = true;
             } catch (Exception e) { Log.w(TAG, "document start script", e); }
+        }
+        // embedded players (any site) get a small script that takes play, pause and skip commands from the player page
+        if (docStartScript) {
+            String frame = readAsset("frame-control.js");
+            if (frame != null) {
+                try { WebViewCompat.addDocumentStartJavaScript(web, frame.replace("__KEY__", frameKey), Collections.singleton("*")); }
+                catch (Exception e) { Log.w(TAG, "frame control script", e); }
+            }
         }
         // the pages talk to the app through window.SportsTV; only the sports site gets it, not embedded players
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
@@ -212,6 +230,8 @@ public class MainActivity extends Activity {
             Object r = null;
             switch (m) {
                 case "version": r = BuildConfig.VERSION_NAME; break;
+                case "allowNav": allowedNav = a.optString(0, null); r = true; break;
+                case "frameKey": r = docStartScript ? frameKey : JSONObject.NULL; break;
                 case "launchApp": r = launchApp(a.optString(0)); break;
                 case "listApps": r = listApps(); break;
                 case "setTextZoom": {
@@ -307,6 +327,19 @@ public class MainActivity extends Activity {
         return true;
     }
 
+    String readAsset(String name) {
+        try (InputStream in = getAssets().open(name)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return out.toString("UTF-8");
+        } catch (Exception e) {
+            Log.w(TAG, "asset " + name, e);
+            return null;
+        }
+    }
+
     /** For old Fire TV web views without message listeners. */
     class Legacy {
         @JavascriptInterface public String call(String json) { return handle(json); }
@@ -319,7 +352,16 @@ public class MainActivity extends Activity {
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
             Uri u = req.getUrl();
             String scheme = u.getScheme() == null ? "" : u.getScheme();
+            // while a game plays, an embed can't redirect the app to another site (ad redirects)
+            if (req.isForMainFrame() && onPlayer() && !u.toString().startsWith(ORIGIN)) {
+                String ok = allowedNav;
+                if (ok != null && ok.equals(u.toString())) { allowedNav = null; return false; }
+                Log.i(TAG, "blocked redirect from player: " + u);
+                return true;
+            }
             if (scheme.equals("http") || scheme.equals("https") || scheme.equals("about") || scheme.equals("data")) return false;
+            // app links (intent:, market:) from inside a player are ignored too
+            if (onPlayer()) return true;
             try {
                 Intent i = scheme.equals("intent") ? Intent.parseUri(u.toString(), Intent.URI_INTENT_SCHEME) : new Intent(Intent.ACTION_VIEW, u);
                 i.addCategory(Intent.CATEGORY_BROWSABLE);
@@ -349,6 +391,26 @@ public class MainActivity extends Activity {
     }
 
     class Chrome extends WebChromeClient {
+        @Override
+        public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+            // popups: always dropped on the player page, and anywhere when nobody pressed anything
+            if (onPlayer() || !isUserGesture) { Log.i(TAG, "blocked popup"); return false; }
+            // a link one of the apps opens in a new tab (a highlight, a box score): show it in this window
+            WebView catcher = new WebView(MainActivity.this);
+            catcher.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
+                    String target = r.getUrl().toString();
+                    if (target.startsWith("http")) web.loadUrl(target);
+                    v.destroy();
+                    return true;
+                }
+            });
+            ((WebView.WebViewTransport) resultMsg.obj).setWebView(catcher);
+            resultMsg.sendToTarget();
+            return true;
+        }
+
         @Override
         public void onShowCustomView(View view, CustomViewCallback cb) {
             if (fullView != null) { cb.onCustomViewHidden(); return; }
