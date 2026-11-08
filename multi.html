@@ -90,10 +90,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081702"></script>
-<script src="tv/common.js?v=202611081702"></script>
-<script src="tv/boxscore.js?v=202611081702"></script>
-<script src="tv/alerts.js?v=202611081702"></script>
+<script src="tv/tv-nav.js?v=202611081737"></script>
+<script src="tv/common.js?v=202611081737"></script>
+<script src="tv/boxscore.js?v=202611081737"></script>
+<script src="tv/alerts.js?v=202611081737"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -166,7 +166,6 @@ function build() {
 function hookFrame(i) {
   const f = tileEl(i).querySelector('iframe');
   const t = tiles[i];
-  t.dog = { at: Date.now(), lastT: null, lastMove: Date.now() };
   t.st = null; t.tapped = false; t.qWant = null;   // a new player starts on its own quality
   if (f) f.addEventListener('load', () => { setTimeout(() => send(tiles.indexOf(t), 'status'), 600); setTimeout(() => send(tiles.indexOf(t), 'status'), 1500); });
   // a player that shows no video after a few seconds probably wants its play button clicked
@@ -379,7 +378,6 @@ $('chips').addEventListener('click', e => {
   else if (a === 'big') { big = sel; paint(); redrawKeep('layout'); }
   else if (a === 'clean') { clean = !clean; STV.store.set('stv.mvClean', clean); tiles.forEach((x, i) => send(i, 'fill', clean)); redrawKeep('clean'); }
   else if (a === 'src') {
-    t.tries = {};
     t.si = (t.si + 1) % t.srcs.length;
     const el = tileEl(sel); el.querySelector('iframe, .empty').outerHTML = frameFor(t);
     hookFrame(sel); paint(); redrawKeep('src');
@@ -537,36 +535,6 @@ async function placeGame(v, at) {
   paint();
   setAudio(sel);
 }
-
-/* ---------- a tile that won't load, errors, or freezes: on to its next source ----------
-   Same rules as the single player: 25 seconds with no video, an error, or 25 seconds frozen while playing.
-   Each source gets a reload before the next one is tried. */
-const DOG_WAIT = 25000;
-setInterval(() => {
-  if (!KEY) return;
-  const now = Date.now();
-  tiles.forEach((t, i) => {
-    const d = t.dog; if (!d || !t.srcs.length) return;
-    const st = t.st;
-    let why = null;
-    if (!st || !st.has) { if (now - d.at > DOG_WAIT) why = 'isn’t loading'; }
-    else if (st.err) why = 'stopped with an error';
-    else if (st.paused) { d.lastMove = now; d.lastT = st.t; }
-    else if (d.lastT == null || Math.abs(st.t - d.lastT) > 0.2) { d.lastT = st.t; d.lastMove = now; }
-    else if (now - d.lastMove > DOG_WAIT) why = 'froze';
-    if (!why) return;
-    t.dog = null;
-    t.tries = t.tries || {};
-    t.tries[t.si] = (t.tries[t.si] || 0) + 1;
-    let next = t.srcs.findIndex((x, j) => j !== t.si && !t.tries[j]);
-    if (next < 0 && t.tries[t.si] < 2) next = t.si;
-    if (next < 0) { nav() && nav().toast(`${t.v.title}: no source is working right now`, 4000); return; }
-    nav() && nav().toast(next === t.si ? `${t.v.title} ${why}. Reloading…` : `${t.v.title} ${why}. Switching to ${t.srcs[next].name}…`, 3500);
-    t.si = next;
-    const el = tileEl(i); el.querySelector('iframe, .empty').outerHTML = frameFor(t);
-    hookFrame(i); paint();
-  });
-}, 2000);
 
 /* ---------- alerts: another game gets close, goes to overtime, or reaches the red zone ---------- */
 // with 4 games up, the alert's game replaces the selected one, or the first one without the sound

@@ -165,28 +165,6 @@ window.STV = (function () {
       title: a.abbreviation + ' at ' + h.abbreviation, key: sport + ':' + ev.id };
   }
 
-  /* what "Back to the start" can reach on a live stream, and why not when it can't */
-  function rewindNote(st) {
-    var d = (st && st.dvr) || {}, from = st && st.from || 0;
-    var t = function (s) { s = Math.round(s); var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60; return h ? h + 'h ' + m + 'm' : m ? m + ' min' : s + ' sec'; };
-    if (from > 120) return 'Back to the start (' + t(from) + ' available)';
-    if (d.why === 'ok') return 'Back to the start · only ' + t(from) + ' available: the site keeps ' + t(d.back) + ', but this player (' + (d.kind || 'unknown') + ') can\'t reach it';
-    var why = {
-      none: 'the app couldn\'t see the stream list (player: ' + (d.kind || 'unknown') + ')',
-      checking: 'checking how far back the site keeps video…',
-      server: 'the site only keeps about ' + t(from || 60) + ' (check answered: ' + (d.code || 'none') + ')',
-      names: 'the video parts aren\'t numbered in order: ' + (d.sample || ''),
-      ended: 'stream list says it has ended',
-      short: 'stream list too short to read',
-      format: 'stream list format not supported (' + (d.tags || '') + ')',
-      byterange: 'the stream uses byte ranges of one file',
-      signed: 'this site signs every video part\'s address, so only what you\'ve watched here can be replayed',
-      keys: 'the stream changes its encryption key as it goes',
-      disc: 'the stream marks a break on every part and has no break count'
-    }[d.why] || (d.why || 'unknown');
-    return 'Back to the start · only ' + t(from) + ' available: ' + why;
-  }
-
   function icon(name) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
   }
@@ -196,6 +174,6 @@ window.STV = (function () {
   return {
     store: store, settings: settings, saveSettings: saveSettings,
     localSources: localSources, saveLocalSources: saveLocalSources, repoSources: repoSources,
-    device: DEVICE, phone: DEVICE === 'phone', sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon, rewindNote: rewindNote, vars: vars
+    device: DEVICE, phone: DEVICE === 'phone', sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon, vars: vars
   };
 })();

@@ -20,19 +20,12 @@
      Shaka's UI hangs itself on the video (video.ui). Otherwise the players are caught as they're
      made: their prototypes are wrapped as soon as the libraries load. */
   var engines = [];
-  function remember(kind, obj, how, args) {
-    for (var i = 0; i < engines.length; i++) if (engines[i].obj === obj) return engines[i];
-    var g = { kind: kind, obj: obj };
-    engines.push(g);
-    try { INFO.kind = kind === 'hls' ? 'hls.js' : 'Shaka'; } catch (e) {}
-    return g;
-  }
+  function remember(kind, obj) { for (var i = 0; i < engines.length; i++) if (engines[i].obj === obj) return; engines.push({ kind: kind, obj: obj }); }
   function wrap(proto, names, kind) {
     names.forEach(function (n) {
       var orig = proto && proto[n];
       if (typeof orig !== 'function' || orig.__stv) return;
-      // the player is set up for a longer rewind before it loads anything
-      var w = function () { var g = remember(kind, this); tune(g, n, arguments); return orig.apply(this, arguments); };
+      var w = function () { remember(kind, this); return orig.apply(this, arguments); };
       w.__stv = 1;
       try { proto[n] = w; } catch (e) {}
     });
@@ -43,9 +36,6 @@
   }
   var hookTries = 0, hookT = setInterval(function () { hookLibs(); if (++hookTries > 150) clearInterval(hookT); }, 100);
   document.addEventListener('DOMContentLoaded', hookLibs);
-  // Note: no trap on window.Hls or window.shaka. Players check "Hls" in window and reuse whatever is
-  // there, so even an empty trap breaks them (JW Player then fails with error 104153). The polling above
-  // catches the libraries, and the download watching below lengthens lists for players it misses.
 
   function engineFor(v) {
     try {
@@ -61,360 +51,9 @@
     }
     return null;
   }
-  /* ---------- a longer rewind and pause on live streams ----------
-     Many live streams list only the last minute of video, even though their servers keep the older
-     pieces for a while. When the pieces are numbered in order, each list is lengthened with the
-     older pieces the server still has (up to 5 hours, so a whole game, found once by asking for a byte of a few).
-     The player also keeps what it has downloaded (up to 15 minutes back), keeps downloading while
-     paused (up to 5 minutes ahead), and doesn't jump forward to live after a pause. */
-  var DVR = 900;          // how much already watched video is kept in memory
-  var REACH = 5 * 3600;   // how far back a live list can be lengthened
-  var rawFetch = window.fetch && window.fetch.bind(window);
-  var found = {};
-  var breaks = {};   // playlist address -> piece numbers seen with a break marker, kept after they scroll off the list   // playlist address -> how many older pieces the server still has (or a promise of it)
-
-  // what the rewind finder saw, shown in the player bar so a stream that won't rewind can be explained
-  var INFO = { lists: 0, why: 'none', back: 0, sample: '', code: '' };
-
-  // does the server still have this piece? asks for one byte, or for the headers only if that's refused
-  function has(u) {
-    if (!rawFetch || !u) return Promise.resolve(false);
-    var once = function (headers) {
-      var c = window.AbortController ? new AbortController() : null;
-      var t = setTimeout(function () { try { c && c.abort(); } catch (e) {} }, 5000);
-      return rawFetch(u, { headers: headers, signal: c ? c.signal : undefined, cache: 'no-store', credentials: 'same-origin' })
-        .then(function (r) { clearTimeout(t); try { c && c.abort(); } catch (e) {} INFO.code = String(r.status); return r.ok; },
-              function (e) { clearTimeout(t); INFO.code = 'blocked'; throw e; });
-    };
-    return once({ Range: 'bytes=0-0' }).catch(function () { return once({}); }).catch(function () { return false; });
-  }
-
-  // works out how the piece names count up: one number in the name that rises by the same step each piece
-  function pattern(uris) {
-    var parts = uris.map(function (u) { return u.split(/(\d+)/); });
-    var n = parts[0].length, at = -1, step = 0;
-    for (var i = 0; i < parts.length; i++) if (parts[i].length !== n) return null;
-    for (var j = 1; j < n; j += 2) {
-      var same = true;
-      for (var k = 1; k < parts.length; k++) if (parts[k][j] !== parts[0][j]) same = false;
-      if (same) continue;
-      if (at >= 0) return null;   // more than one number changes: can't guess
-      at = j;
-    }
-    for (var j2 = 0; j2 < n; j2 += 2) for (var k2 = 1; k2 < parts.length; k2++) if (parts[k2][j2] !== parts[0][j2]) return null;
-    if (at < 0) return null;
-    step = +parts[1][at] - +parts[0][at];
-    if (!(step > 0)) return null;
-    for (var k3 = 1; k3 < parts.length; k3++) if (+parts[k3][at] - +parts[k3 - 1][at] !== step) return null;
-    var tok = parts[0][at], pad = tok.length > 1 && tok[0] === '0' ? tok.length : 0, first = +tok;
-    return {
-      first: first, step: step,
-      older: function (back) {
-        var v = first - back * step;
-        if (v < 0) return null;
-        var t = String(v);
-        while (t.length < pad) t = '0' + t;
-        var p = parts[0].slice(); p[at] = t;
-        return p.join('');
-      }
-    };
-  }
-
-  var MARK = '#STV-LONGER';   // a comment line; players skip it. Stops a list being lengthened twice
-
-  // reads a live list; returns what's needed to lengthen it, or null (with the reason in INFO)
-  function prep(text, url) {
-    if (typeof text !== 'string' || text.indexOf('#EXTINF') < 0) return null;
-    if (text.indexOf(MARK) >= 0) return null;
-    INFO.lists++;
-    if (/#EXT-X-ENDLIST/.test(text)) { INFO.why = 'ended'; INFO.live = false; return null; }
-    INFO.live = true;
-    INFO.tags = (text.match(/^#EXT[A-Z0-9-]*/mg) || []).filter(function (t, i, a) { return a.indexOf(t) === i; }).join(' ');
-    if (/#EXT-X-BYTERANGE/.test(text)) { INFO.why = 'byterange'; return null; }
-    var m = text.match(/#EXT-X-MEDIA-SEQUENCE:\s*(\d+)/), dm = text.match(/#EXT-X-DISCONTINUITY-SEQUENCE:\s*(\d+)/);
-    var seq = m ? +m[1] : 0, lines = text.split(/\r?\n/), segs = [], last = -1;
-    // each piece, with the tags written just for it (a break marker, its own key line)
-    for (var i = 0; i < lines.length; i++) {
-      if (lines[i].indexOf('#EXTINF:') !== 0) continue;
-      var seg = { at: i, dur: parseFloat(lines[i].slice(8)) || 0, disc: false, key: null };
-      for (var k = i - 1; k > last; k--) {
-        if (/^#EXT-X-DISCONTINUITY\s*$/.test(lines[k])) seg.disc = true;
-        else if (lines[k].indexOf('#EXT-X-KEY:') === 0 && !seg.key) seg.key = lines[k];
-      }
-      for (var j = i + 1; j < lines.length; j++) {
-        var l = lines[j].trim();
-        if (l && l[0] !== '#') { seg.uri = l; last = j; break; }
-      }
-      if (seg.uri) segs.push(seg);
-    }
-    if (segs.length < 3) { INFO.why = 'short'; return null; }
-    // a key line on every piece is fine when it's the same key, with no IV, one IV, or an IV that counts with the pieces
-    var keyMode = null, keyed = segs.filter(function (x) { return x.key; });
-    if ((text.match(/^#EXT-X-KEY:/mg) || []).length > 1) {
-      var kAttr = function (line, n) { var r = line.match(new RegExp(n + '=("[^"]*"|[^,]*)')); return r ? r[1] : ''; };
-      var k0 = keyed[0] ? keyed[0].key : '';
-      var sameKey = keyed.length >= segs.length - 1 && keyed.every(function (x) { return kAttr(x.key, 'METHOD') === kAttr(k0, 'METHOD') && kAttr(x.key, 'URI') === kAttr(k0, 'URI'); });
-      if (!sameKey) { INFO.why = 'keys'; return null; }
-      var ivs = keyed.map(function (x) { return kAttr(x.key, 'IV'); });
-      if (ivs.some(function (v) { return v !== ivs[0]; })) {
-        var counts = typeof BigInt === 'function' && segs.every(function (x, n) {
-          try { return x.key && BigInt(kAttr(x.key, 'IV')) === BigInt(seq + n); } catch (e) { return false; }
-        });
-        if (!counts) { INFO.why = 'keys'; return null; }
-        keyMode = { line: segs[0].key, iv: kAttr(segs[0].key, 'IV') };
-      } else keyMode = { line: segs[0].key };
-    }
-    // break markers: on every piece (some restreams do this), or here and there
-    var discs = segs.filter(function (x) { return x.disc; }).length;
-    var discEach = discs >= segs.length - 1 && discs > 0;
-    var pat = pattern(segs.map(function (x) { return x.uri; }));
-    if (!pat && segs.every(function (x) { return /[?&](signature|sig|token|hdnts|policy|expires|md5|hash)=/i.test(x.uri); })) {
-      // each address carries its own signature from the site's server; older ones can't be made up
-      INFO.why = 'signed'; INFO.sample = '';
-      return null;
-    }
-    if (!pat) {
-      INFO.why = 'names';
-      INFO.sample = segs.slice(-2).map(function (x) { return x.uri.split('?')[0].split('/').pop().slice(-40); }).join('  ');
-      return null;
-    }
-    var avg = segs.reduce(function (a2, x) { return a2 + x.dur; }, 0) / segs.length;
-    if (!(avg > 0)) { INFO.why = 'format'; return null; }
-    var most = Math.min(Math.floor(REACH / avg), Math.floor(pat.first / pat.step), m ? seq : Infinity);
-    var key = String(url).split('?')[0], br = breaks[key] || (breaks[key] = {});
-    if (dm) segs.forEach(function (x, n) { if (x.disc) br[seq + n] = 1; });
-    // with a marker on every piece, the break count can't go below 0
-    if (discEach) most = Math.min(most, dm ? +dm[1] : 0);
-    if (most < 1) { INFO.why = discEach ? 'disc' : 'server'; return null; }
-    return { text: text, url: url, seq: seq, hasSeq: !!m, dseq: dm ? +dm[1] : null, discEach: discEach, keyMode: keyMode,
-             breaks: br, lines: lines, segs: segs, pat: pat, avg: avg, most: most, key: key };
-  }
-
-  function abs(P, back) { var u = P.pat.older(back); try { return u && new URL(u, P.url).href; } catch (e) { return null; } }
-
-  // the furthest piece back the server still has: 7 points checked at once, then the gap between the
-  // last one found and the first one missing; about 4 rounds for a whole game. Done once per list.
-  function probe(P) {
-    if (found[P.key] != null) return Promise.resolve(found[P.key]);
-    INFO.why = 'checking';
-    var lo = 0, hi = P.most + 1;
-    var round = function () {
-      if (hi - lo <= 1) return lo;
-      var pts = [], gap = (hi - lo) / 8;
-      for (var q = 1; q <= 7; q++) { var x = Math.round(lo + gap * q); if (x > lo && x < hi && pts.indexOf(x) < 0) pts.push(x); }
-      if (!pts.length) pts.push(lo + 1);
-      return Promise.all(pts.map(function (x) { return has(abs(P, x)); })).then(function (oks) {
-        for (var r = 0; r < pts.length; r++) { if (oks[r]) lo = pts[r]; else { hi = pts[r]; break; } }
-        return round();
-      });
-    };
-    found[P.key] = has(abs(P, P.most)).then(function (ok) { return ok ? P.most : round(); })
-      .then(function (n) { found[P.key] = n; return n; }, function () { found[P.key] = 0; return 0; })
-      .then(function (n) { INFO.why = n ? 'ok' : 'server'; INFO.back = Math.max(INFO.back, Math.round(n * P.avg)); return n; });
-    return found[P.key];
-  }
-
-  function build(P, n) {
-    n = Math.min(n, P.most);
-    var add = [], count = 0, tags = 0;
-    for (var b = n; b >= 1; b--) {
-      var u = P.pat.older(b);
-      if (!u) continue;
-      // a break marker where the stream had one: on every piece, or one seen before it scrolled off the list
-      if (P.discEach || (P.dseq != null && P.breaks[P.seq - b] && tags < P.dseq)) { add.push('#EXT-X-DISCONTINUITY'); tags++; }
-      if (P.keyMode && P.keyMode.iv) {
-        var iv = (BigInt(P.seq) - BigInt(b)).toString(16);
-        while (iv.length < 32) iv = '0' + iv;
-        add.push(P.keyMode.line.replace(/IV=0x[0-9a-fA-F]+/, 'IV=0x' + iv));
-      } else if (P.keyMode) add.push(P.keyMode.line);
-      add.push('#EXTINF:' + P.avg.toFixed(3) + ',', u);
-      count++;
-    }
-    if (!count) return P.text;
-    // the older pieces go in just above the first piece's own tags
-    var lines = P.lines, at = P.segs[0].at;
-    while (at > 0 && (/^#EXT-X-PROGRAM-DATE-TIME/.test(lines[at - 1]) || /^#EXT-X-DISCONTINUITY\s*$/.test(lines[at - 1]) ||
-                      (P.keyMode && lines[at - 1].indexOf('#EXT-X-KEY:') === 0))) at--;
-    var out = lines.slice(0, at).concat(add, lines.slice(at)).join('\n');
-    var sq = '#EXT-X-MEDIA-SEQUENCE:' + (P.seq - count);
-    out = P.hasSeq ? out.replace(/#EXT-X-MEDIA-SEQUENCE:\s*\d+/, sq) : out.replace('#EXTM3U', '#EXTM3U\n' + sq);
-    if (tags) out = out.replace(/#EXT-X-DISCONTINUITY-SEQUENCE:\s*\d+/, '#EXT-X-DISCONTINUITY-SEQUENCE:' + (P.dseq - tags));
-    return out.replace('#EXTM3U', '#EXTM3U\n' + MARK);
-  }
-
-  // waits for the check the first time (players that let us hold the list)
-  function lengthen(text, url) {
-    try {
-      var P = prep(text, url);
-      if (!P) return Promise.resolve(text);
-      return probe(P).then(function (n) { return n ? build(P, n) : text; }, function () { return text; });
-    } catch (e) { return Promise.resolve(text); }
-  }
-  // answers right away: lengthened once the check has finished, unchanged (and the check started) before
-  function lengthenNow(text, url) {
-    try {
-      var P = prep(text, url);
-      if (!P) return text;
-      var n = found[P.key];
-      if (typeof n === 'number') return n ? build(P, n) : text;
-      probe(P);
-      return text;
-    } catch (e) { return text; }
-  }
-  function looksLikeList(t) { return typeof t === 'string' && t.slice(0, 64).indexOf('#EXTM3U') >= 0; }
-
-  /* the players' own downloads: any player that fetches its lists with XMLHttpRequest or fetch,
-     even one built into the site's own code, gets the lengthened list */
-  try {
-    var XP = XMLHttpRequest.prototype, xOpen = XP.open;
-    var textGet = Object.getOwnPropertyDescriptor(XP, 'responseText').get;   // the browser's own, before it's wrapped below
-    XP.open = function (m2, u) { this.__stvUrl = u; return xOpen.apply(this, arguments); };
-    ['responseText', 'response'].forEach(function (name) {
-      var d = Object.getOwnPropertyDescriptor(XP, name);
-      if (!d || !d.get) return;
-      Object.defineProperty(XP, name, {
-        configurable: true, enumerable: d.enumerable,
-        get: function () {
-          var v = d.get.call(this);
-          if (this.readyState !== 4 || !looksLikeList(v)) return v;
-          if (this.__stvIn === v) return this.__stvOut;
-          var u;
-          try { u = new URL(this.responseURL || this.__stvUrl, location.href).href; } catch (e) { u = this.responseURL || String(this.__stvUrl); }
-          this.__stvIn = v; this.__stvOut = lengthenNow(v, u);
-          return this.__stvOut;
-        }
-      });
-    });
-    /* the first time a list arrives, the player's "loaded" handlers wait for the check (about a second),
-       so the player starts with the long list. Players get confused if a list grows backwards later. */
-    var gate = function (x, run) {
-      if (x.readyState !== 4) return run();
-      if (x.__stvGate === undefined) {
-        x.__stvGate = null;
-        try {
-          var rt = x.responseType;
-          if (!rt || rt === 'text') {
-            var raw = textGet.call(x);
-            if (looksLikeList(raw)) {
-              var u2; try { u2 = new URL(x.responseURL || x.__stvUrl, location.href).href; } catch (e) { u2 = String(x.__stvUrl); }
-              var P = prep(raw, u2);
-              if (P && typeof found[P.key] !== 'number') { INFO.lists--; x.__stvGate = probe(P).catch(function () {}); }
-            }
-          }
-        } catch (e) {}
-      }
-      if (x.__stvGate) x.__stvGate.then(run); else run();
-    };
-    var EV = { load: 1, loadend: 1, readystatechange: 1 };
-    var wrapped = typeof WeakMap === 'function' ? new WeakMap() : null;
-    var wrapFn = function (fn) {
-      if (typeof fn !== 'function' || !wrapped) return fn;
-      var w = wrapped.get(fn);
-      if (!w) { w = function (ev) { var x = this; gate(x, function () { fn.call(x, ev); }); }; wrapped.set(fn, w); }
-      return w;
-    };
-    var xAdd = XP.addEventListener, xRemove = XP.removeEventListener;
-    XP.addEventListener = function (type, fn, o) { return xAdd.call(this, type, EV[type] ? wrapFn(fn) : fn, o); };
-    XP.removeEventListener = function (type, fn, o) { return xRemove.call(this, type, EV[type] && wrapped && wrapped.get(fn) || fn, o); };
-    [[XP, 'onreadystatechange'], [window.XMLHttpRequestEventTarget && XMLHttpRequestEventTarget.prototype, 'onload'],
-     [window.XMLHttpRequestEventTarget && XMLHttpRequestEventTarget.prototype, 'onloadend']].forEach(function (pair) {
-      var proto = pair[0], name = pair[1], d = proto && Object.getOwnPropertyDescriptor(proto, name);
-      if (!d || !d.set) return;
-      Object.defineProperty(proto, name, {
-        configurable: true, enumerable: d.enumerable,
-        get: function () { return this['__stv_' + name] || null; },
-        set: function (fn) { this['__stv_' + name] = fn; d.set.call(this, wrapFn(fn)); }
-      });
-    });
-  } catch (e) {}
-  if (rawFetch) {
-    try {
-      window.fetch = function (input, init) {
-        var p = rawFetch(input, init);
-        var u = typeof input === 'string' ? input : (input && input.url) || String(input);
-        return p.then(function (r) {
-          try {
-            var ct = (r.headers && r.headers.get('content-type')) || '';
-            if (!/mpegurl/i.test(ct) && !/\.m3u8/i.test(r.url || u)) return r;
-            return r.clone().text().then(function (t) {
-              if (!looksLikeList(t)) return r;
-              return lengthen(t, r.url || u).then(function (t2) {
-                if (t2 === t) return r;
-                var h = new Headers(r.headers); h.delete('content-length'); h.delete('content-encoding');
-                var out = new Response(t2, { status: r.status, statusText: r.statusText, headers: h });
-                try { Object.defineProperty(out, 'url', { value: r.url }); } catch (e) {}
-                return out;
-              });
-            }).catch(function () { return r; });
-          } catch (e) { return r; }
-        });
-      };
-    } catch (e) {}
-  }
-
-  function isDash(u, type) { return /\.mpd(\?|$)/i.test(String(u || '')) || /dash/i.test(String(type || '')); }
-
-  function tune(g, how, args) {
-    if (!g) return;
-    try {
-      if (g.kind === 'shaka') {
-        var pl = g.obj;
-        var conf = { streaming: { bufferBehind: DVR, bufferingGoal: 300 } };
-        // DASH lists can be told to reach further back; HLS lists are lengthened below instead
-        if (how === 'load' && args && isDash(args[0], args[2])) conf.manifest = { availabilityWindowOverride: REACH };
-        if (!g.tuned || conf.manifest) pl.configure(conf);
-        var ne = pl.getNetworkingEngine && pl.getNetworkingEngine();
-        if (ne && ne !== g.ne) {
-          g.ne = ne;
-          ne.registerResponseFilter(function (type, resp) {
-            if (type !== 0 || !resp || !resp.data) return;   // 0: playlists
-            var txt;
-            try { txt = new TextDecoder().decode(resp.data); } catch (e) { return; }
-            if (txt.indexOf('#EXTINF') < 0) return;
-            return lengthen(txt, resp.uri).then(function (t) { if (t !== txt) resp.data = new TextEncoder().encode(t).buffer; });
-          });
-        }
-      } else if (g.kind === 'hls') {
-        var c = g.obj.config;
-        if (!g.tuned) {
-          c.backBufferLength = DVR;
-          c.maxBufferLength = 300;
-          c.maxMaxBufferLength = 600;
-          // don't snap forward to live after a pause
-          c.liveMaxLatencyDurationCount = Infinity;
-          c.liveMaxLatencyDuration = Infinity;
-          var Base = c.pLoader || c.loader;
-          if (Base && !Base.__stv) {
-            var L = function (cfg) { this.inner = new Base(cfg); };
-            L.__stv = 1;
-            Object.defineProperty(L.prototype, 'stats', { get: function () { return this.inner.stats; } });
-            Object.defineProperty(L.prototype, 'context', { get: function () { return this.inner.context; } });
-            L.prototype.load = function (ctx, conf2, cbs) {
-              var self = this, ok = cbs.onSuccess, mine = {};
-              for (var k in cbs) mine[k] = cbs[k];
-              self.gone = false;
-              mine.onSuccess = function (resp, stats, ctx2, net) {
-                if (!resp || typeof resp.data !== 'string') return ok(resp, stats, ctx2, net);
-                lengthen(resp.data, resp.url || ctx.url).then(function (t) { if (self.gone) return; resp.data = t; ok(resp, stats, ctx2, net); });
-              };
-              this.inner.load(ctx, conf2, mine);
-            };
-            L.prototype.abort = function () { this.gone = true; this.inner.abort(); };
-            L.prototype.destroy = function () { this.gone = true; this.inner.destroy(); };
-            L.prototype.getCacheAge = function () { return this.inner.getCacheAge ? this.inner.getCacheAge() : null; };
-            L.prototype.getResponseHeader = function (n) { return this.inner.getResponseHeader ? this.inner.getResponseHeader(n) : null; };
-            c.pLoader = L;
-          }
-        }
-      }
-      g.tuned = true;
-    } catch (e) {}
-  }
-
   function qualities(v) {
     var g = engineFor(v);
     if (!g) return null;
-    if (!g.tuned) tune(g);
     try {
       if (g.kind === 'shaka') {
         var tracks = g.obj.getVariantTracks(), seen = {}, list = [], active = null;
@@ -479,14 +118,6 @@
     return b;
   }
   function edges(v) {
-    // hls.js keeps the start of a live stream at 0 even after old pieces drop off, so use its list
-    try {
-      var g = engineFor(v);
-      if (g && g.kind === 'hls') {
-        var lv = g.obj.levels && g.obj.levels[g.obj.currentLevel >= 0 ? g.obj.currentLevel : 0], d = lv && lv.details;
-        if (d && d.live && d.fragments && d.fragments.length) return [d.fragments[0].start, d.edge || d.fragments[d.fragments.length - 1].end];
-      }
-    } catch (e) {}
     var s = v.seekable;
     if (s && s.length) return [s.start(0), s.end(s.length - 1)];
     return [0, isFinite(v.duration) ? v.duration : v.currentTime];
@@ -521,22 +152,11 @@
     return false;
   }
 
-  function playerKind() {
-    try {
-      if (!INFO.kind || INFO.kind === 'unknown') {
-        INFO.kind = window.videojs ? 'video.js' : window.jwplayer ? 'JW Player' : window.Clappr ? 'Clappr' : window.dashjs ? 'dash.js'
-          : window.flowplayer ? 'Flowplayer' : window.Plyr ? 'Plyr' : 'unknown';
-      }
-    } catch (e) {}
-    return INFO;
-  }
-
   function status(v) {
     if (!v) return { has: false };
-    var e = edges(v), live = !isFinite(v.duration) || v.duration > 86400 || engineLive(v) || !!INFO.live;
+    var e = edges(v), live = !isFinite(v.duration) || v.duration > 86400 || engineLive(v);
     return { has: true, paused: v.paused, muted: v.muted, t: v.currentTime, d: live ? null : v.duration,
              live: live, behind: live ? Math.max(0, e[1] - v.currentTime) : 0, filled: filled === v, q: qualities(v),
-             from: live ? Math.max(0, v.currentTime - e[0]) : 0, dvr: playerKind(),
              err: !!v.error, rs: v.readyState };
   }
 
@@ -550,8 +170,6 @@
         v.currentTime = Math.max(e[0], Math.min(e[1] - 1, t));
         break;
       }
-      // a little after the very first piece: some players jump to live if asked for a spot before it
-      case 'start': { var e3 = edges(v); v.currentTime = e3[0] + (e3[1] - e3[0] > 300 ? 20 : 2); var p4 = v.play(); if (p4 && p4.catch) p4.catch(function () {}); break; }
       case 'live': { var e2 = edges(v); v.currentTime = Math.max(e2[0], e2[1] - 3); var p3 = v.play(); if (p3 && p3.catch) p3.catch(function () {}); break; }
       // with a value these set the state; without one they flip it
       case 'mute': v.muted = typeof c.v === 'boolean' ? c.v : !v.muted; break;

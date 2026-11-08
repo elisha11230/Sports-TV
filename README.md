@@ -101,9 +101,6 @@ Open a game on the home screen and choose "Add to multiview" (up to four games),
 
 On days with NFL games a RedZone card leads the NFL list. It plays from the same sources with the team codes set to `redzone`, so a `/{sport}/{homeNick}` address becomes `/nfl/redzone`. RedZone can go in multiview too.
 
-## When a stream fails
-The player and each multiview tile watch their stream. With no video after 25 seconds (after the tap the app tries), a playback error, or a picture frozen for 25 seconds while playing, it reloads the source once, or switches to the next source set up for that sport, with a short note on screen. Picking a source by hand starts the count over. Add a second source in Settings or `sources.json` for it to switch to.
-
 ## Search
 🔍 Search on the home screen (or a remote's Search key) takes a team, a city or a channel, typed or spoken: "Knicks", "New York", "Chiefs game tomorrow", "RedZone", "NFL Network". It looks through yesterday, today and the next 6 days. Starting with "watch" ("watch the Jets") goes straight to a live game. Speak uses the device's speech service (phones, and Fire TVs that have one); without one, the keyboard's mic (on Fire TV, hold the remote's 🎤 while the keyboard is up) types into the box.
 
