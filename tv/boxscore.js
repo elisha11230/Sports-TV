@@ -23,6 +23,8 @@ window.BOX = (function () {
     '#boxp .b{padding:5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(20,28,44,.85);color:inherit;font:600 13px inherit;cursor:pointer}' +
     '#boxp .b.on{background:#EAF0F8;color:#0A111E;border-color:#EAF0F8}' +
     '#boxp .bb{flex:1;overflow:auto;padding:4px 18px 24px 34px}' +
+    '#boxp .bs{position:absolute;right:16px;bottom:10px;font-size:11px;color:#A7B4CA;background:rgba(6,10,18,.85);padding:3px 9px;border-radius:999px;pointer-events:none}' +
+    '#boxp .bs:empty{display:none}' +
     '#boxp .score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin:2px 0 10px}' +
     '#boxp .tm{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px}' +
     '#boxp .tm.r{justify-content:flex-end}' +
@@ -58,15 +60,24 @@ window.BOX = (function () {
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-label', 'Box score');
     el.innerHTML = '<div class="bh"><h2 id="boxt">Box score</h2><button class="b" type="button" data-x="1" aria-label="Close box score">Close</button></div>' +
-      '<div class="bt" id="boxtabs"></div><div class="bb" id="boxb"><p class="note">Loading…</p></div>';
+      '<div class="bt" id="boxtabs"></div><div class="bb" id="boxb"><p class="note">Loading…</p></div><div class="bs" id="boxs"></div>';
     document.body.appendChild(el);
     el.addEventListener('click', function (e) {
       var b = e.target.closest('button'); if (!b) return;
       if (b.dataset.x) close();
       else if (b.dataset.side != null) { side = +b.dataset.side; draw(); refocus('[data-side="' + side + '"]'); }
     });
-    // Escape (and the remote's Back, through tv-nav) closes it
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && isOpen()) { e.preventDefault(); e.stopPropagation(); close(); } }, true);
+    // Escape (and the remote's Back, through tv-nav) closes it; Up and Down scroll it
+    document.addEventListener('keydown', function (e) {
+      if (!isOpen()) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
+      var dir = e.key === 'ArrowDown' || e.keyCode === 20 ? 1 : e.key === 'ArrowUp' || e.keyCode === 19 ? -1 : 0;
+      if (!dir) return;   // left and right still move between the buttons
+      e.preventDefault(); e.stopImmediatePropagation();
+      var b = el.querySelector('#boxb');
+      b.scrollTop += dir * Math.max(90, Math.round(b.clientHeight * 0.35));
+      hint();
+    }, true);
   }
   function refocus(sel) {
     setTimeout(function () {
@@ -76,6 +87,10 @@ window.BOX = (function () {
     }, 20);
   }
 
+  function hint() {
+    var b = el.querySelector('#boxb'), more = b.scrollHeight - b.clientHeight - b.scrollTop > 4, up = b.scrollTop > 4;
+    el.querySelector('#boxs').textContent = more ? '▼ more' : up ? '▲ top' : '';
+  }
   function isOpen() { return !!el && !el.hidden; }
   function open(g) {
     ensure();
@@ -113,7 +128,7 @@ window.BOX = (function () {
   function draw() {
     if (!last || !game) return;
     var body = el.querySelector('#boxb'), keep = body.scrollTop;
-    if (game.gameId === 'redzone') { drawLeague(body); body.scrollTop = keep; return; }
+    if (game.gameId === 'redzone') { drawLeague(body); body.scrollTop = keep; hint(); return; }
     var comp = (last.header && last.header.competitions && last.header.competitions[0]) || {};
     var teams = (comp.competitors || []).slice().sort(function (a, b) { return (a.homeAway === 'home') - (b.homeAway === 'home'); });
     if (teams.length < 2) { body.innerHTML = '<p class="note">No box score for this game yet.</p>'; return; }
@@ -133,6 +148,7 @@ window.BOX = (function () {
     h += players(teams[side]);
     body.innerHTML = h;
     body.scrollTop = keep;
+    hint();
   }
   function abbr(t) { return (t.team && (t.team.abbreviation || t.team.shortDisplayName)) || ''; }
   function logo(t) { var tm = t.team || {}; return tm.logo || (tm.logos && tm.logos[0] && tm.logos[0].href) || ''; }

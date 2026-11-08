@@ -76,7 +76,7 @@ Embedded players can't open popups or send the app to another site: the frame ru
 
 ## Box score
 
-While a game plays, press Down (or the stats button in the controls) and a box score slides in on the right, like Prime Video's: the score by quarter, team stats, and player stats with a button for each team. It updates every 15 seconds and Back closes it. On RedZone it lists every NFL game of the day with live down and distance. In multiview, the stats button shows the selected game's box score. Data comes from ESPN's game summary (`tv/boxscore.js`).
+While a game plays, press Down (or the stats button in the controls) and a box score slides in on the right, like Prime Video's: the score by quarter, team stats, and player stats with a button for each team. Up and Down scroll it, Left and Right switch teams, it updates every 15 seconds, and Back closes it. On RedZone it lists every NFL game of the day with live down and distance. In multiview, the stats button shows the selected game's box score. Data comes from ESPN's game summary (`tv/boxscore.js`).
 
 ## Multiview and RedZone
 

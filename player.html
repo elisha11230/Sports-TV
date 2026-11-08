@@ -295,7 +295,7 @@ $('chips').addEventListener('click', e => {
 /* ---------- the remote ---------- */
 // with the bar hidden, a key brings it back instead of moving focus (video keys still work)
 window.addEventListener('keydown', e => {
-  if (BOX.isOpen()) { if (e.key === 'ArrowDown' && !document.querySelector('#boxp').contains(document.activeElement)) { e.preventDefault(); e.stopImmediatePropagation(); BOX.close(); } return; }
+  if (BOX.isOpen()) return;   // the box score takes the remote: Up/Down scroll it, Back closes it
   if (barOpen()) { showBar(); return; }   // any key keeps the bar up a little longer
   if (e.key === 'ArrowDown' && G.gameId) { e.preventDefault(); e.stopImmediatePropagation(); BOX.open(G); return; }
   const k = e.key, s = sources[cur];
