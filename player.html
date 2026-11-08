@@ -37,6 +37,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 <script>window.__STV_FORCE = 1</script>
 <script src="tv/tv-nav.js"></script>
 <script src="tv/common.js"></script>
+<script src="tv/boxscore.js"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -153,6 +154,7 @@ function drawBar() {
     }
     html += '<span class="sep"></span>';
   }
+  if (G.gameId && /^(nba|nfl|cfb|mlb)$/.test(G.sport)) html += ic('box', 'stats', G.gameId === 'redzone' ? 'Scores around the NFL (or press Down)' : 'Box score (or press Down)', BOX.isOpen() ? 'on' : '') + '<span class="sep"></span>';
   if (sources.length > 1) html += sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}" aria-label="Source: ${esc(x.name)}">${esc(x.name)}</button>`).join('') + '<span class="sep"></span>';
   if (s && s.type === 'embed') html += ic('tap', 'tap', 'Tap the player (for players that need a click to start)') + ic('full', 'open', 'Open the full page');
   html += ic('back', 'back', 'Back to games');
@@ -240,6 +242,7 @@ $('chips').addEventListener('click', e => {
     return;
   }
   const a = b.dataset.act;
+  if (a === 'box') { hideBar(); BOX.toggle(G); return; }
   if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
   else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur]) { control(a); showBar(); setTimeout(drawKeep, 400, a); }
   else if (a === 'tap') { hideBar(); setTimeout(() => { if (bridge) bridge.call('tap', 0.5, 0.5); else nav() && nav().toast('Click the player with a mouse here'); }, 350); }
@@ -254,7 +257,9 @@ $('chips').addEventListener('click', e => {
 /* ---------- the remote ---------- */
 // with the bar hidden, a key brings it back instead of moving focus (video keys still work)
 window.addEventListener('keydown', e => {
+  if (BOX.isOpen()) { if (e.key === 'ArrowDown' && !document.querySelector('#boxp').contains(document.activeElement)) { e.preventDefault(); e.stopImmediatePropagation(); BOX.close(); } return; }
   if (barOpen()) { showBar(); return; }   // any key keeps the bar up a little longer
+  if (e.key === 'ArrowDown' && G.gameId) { e.preventDefault(); e.stopImmediatePropagation(); BOX.open(G); return; }
   const k = e.key, s = sources[cur];
   const can = s && (s.type === 'video' || (s.type === 'embed' && KEY && ctl && ctl.has));
   if (can && (k === 'Enter' || e.keyCode === 23)) control('pp');

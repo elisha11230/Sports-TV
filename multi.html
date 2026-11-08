@@ -59,6 +59,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 <script>window.__STV_FORCE = 1</script>
 <script src="tv/tv-nav.js"></script>
 <script src="tv/common.js"></script>
+<script src="tv/boxscore.js"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -194,6 +195,7 @@ function drawBar() {
   h += ic('clean', 'fill', 'Fill tiles', clean ? 'on' : '');
   if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual" aria-label="Quality for ${esc(t.v.title)}">${esc(qualLabel(q))}</button>`;
   if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src" aria-label="Switch source">${esc(srcs[t.si].name)}</button>`;
+  if (/^(nba|nfl|cfb|mlb)$/.test(t.v.sport)) h += ic('box', 'stats', t.v.gameId === 'redzone' ? 'Scores around the NFL' : `Box score for ${t.v.title}`);
   h += '<span class="sep"></span>';
   h += ic('tap', 'tap', 'Tap the video (for players that need a click to start)');
   h += ic('full', 'tv', 'Watch this game full screen');
@@ -226,6 +228,7 @@ $('chips').addEventListener('click', e => {
   }
   if (a === 'back') { history.length > 1 ? history.back() : (location.href = 'index.html'); return; }
   if (!t) return;
+  if (a === 'box') { hideBar(); BOX.open(t.v); return; }
   if (a === 'audio') { setAudio(sel); redrawKeep('layout'); }
   else if (a === 'layout') { layout = layout === 'grid' ? 'focus' : 'grid'; STV.store.set('stv.mvLayout', layout); paint(); redrawKeep('layout'); }
   else if (a === 'big') { big = sel; paint(); redrawKeep('layout'); }
@@ -277,6 +280,7 @@ function moveSel(dir) {
 }
 const DIRS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
 window.addEventListener('keydown', e => {
+  if (BOX.isOpen()) return;   // the remote moves inside the box score; Back closes it
   if (barOpen()) { clearTimeout(hideT); hideT = setTimeout(hideBar, 8000); return; }
   const k = e.key;
   if (k === 'Backspace' || k === 'Escape') return;

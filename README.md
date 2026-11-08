@@ -74,6 +74,10 @@ The app adds a small script (`android/app/src/main/assets/frame-control.js`) ins
 ### Popups and redirects
 Embedded players can't open popups or send the app to another site: the frame runs sandboxed, its `window.open` does nothing, and the app itself drops popups and outside redirects while the player page is showing. If a player refuses to load sandboxed, set `"sandbox": false` on that source (or choose "Allow" in the source's settings on the TV).
 
+## Box score
+
+While a game plays, press Down (or the stats button in the controls) and a box score slides in on the right, like Prime Video's: the score by quarter, team stats, and player stats with a button for each team. It updates every 15 seconds and Back closes it. On RedZone it lists every NFL game of the day with live down and distance. In multiview, the stats button shows the selected game's box score. Data comes from ESPN's game summary (`tv/boxscore.js`).
+
 ## Multiview and RedZone
 
 Open a game on the home screen and choose "Add to multiview" (up to four games), then "Open multiview" or the Multiview button by the sport filters. With the options bar closed, the arrows move to a game and its sound comes with it, and Menu (☰) opens the options: layout (even grid, or one big plus the rest small), make the selected game big, fill tiles, switch source, tap video, full screen, remove. Sound switching and fill need the Fire TV app.

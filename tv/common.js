@@ -108,7 +108,8 @@ window.STV = (function () {
     focus: '<rect x="3.5" y="5" width="11" height="14" rx="1.2"/><rect x="16.5" y="5" width="4" height="6" rx="1"/><rect x="16.5" y="13" width="4" height="6" rx="1"/>',
     big: '<rect x="3.5" y="5" width="11" height="14" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="16.5" y="5" width="4" height="6" rx="1"/><rect x="16.5" y="13" width="4" height="6" rx="1"/>',
     tv: '<rect x="3.5" y="5" width="17" height="11.5" rx="1.5"/><path d="M9 20h6"/>',
-    remove: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>'
+    remove: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    stats: '<path d="M5 20V11M10 20V5M15 20v-7M20 20V8"/>'
   };
   function icon(name) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
