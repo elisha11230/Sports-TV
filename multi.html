@@ -73,7 +73,12 @@ const SPORT_NAME = { nba: 'NBA', nfl: 'NFL', cfb: 'College', mlb: 'MLB' };
 const multi = () => { try { return JSON.parse(sessionStorage.getItem('stv.multi') || '[]'); } catch (e) { return []; } };
 const saveMulti = l => sessionStorage.setItem('stv.multi', JSON.stringify(l));
 
-let KEY = null, tiles = [], sel = 0, audio = 0, big = 0, hideT = null;
+let KEY = null, tiles = [], sel = 0, audio = 0, big = 0, hideT = null, qualOpen = false;
+function qualLabel(q) {
+  if (q.cur === 'auto') return 'Auto' + (q.now ? ` (${q.now})` : '');
+  const it = q.list.find(x => x.id === q.cur);
+  return it ? it.label : q.now || 'Auto';
+}
 let layout = STV.store.get('stv.mvLayout', 'grid');
 let clean = STV.store.get('stv.mvClean', true);
 
@@ -159,17 +164,25 @@ function showBar(ms) {
     if (!f || !$('bar').contains(f)) { const b = $('chips').querySelector('button'); if (b && nav()) nav().focus(b, { noScroll: true }); }
   }, 30);
 }
-function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); }
+function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); qualOpen = false; }
 function drawBar() {
   const t = tiles[sel];
   $('sub').textContent = t ? `Selected: ${t.v.title}${sel === audio ? ' · has the sound' : ''}` : '';
   if (!t) { $('chips').innerHTML = `<button class="chip" type="button" data-a="back">Back to games</button>`; return; }
-  const n = tiles.length, srcs = t.srcs;
+  const n = tiles.length, srcs = t.srcs, q = t.st && t.st.q;
+  if (qualOpen && q && q.list.length) {
+    $('chips').innerHTML = [['auto', 'Auto'], ...q.list.map(x => [x.id, x.label])]
+      .map(([id, label]) => `<button class="chip${q.cur === id ? ' on' : ''}" type="button" data-q="${esc(id)}">${esc(label)}</button>`).join('')
+      + `<button class="chip" type="button" data-a="qdone">Done</button>`;
+    $('hint').textContent = `Quality for ${t.v.title} · Auto lets the player choose`;
+    return;
+  }
   let h = '';
   if (n > 1 && sel !== audio) h += `<button class="chip" type="button" data-a="audio">🔊 Sound to ${esc(t.v.title)}</button>`;
   if (n > 1) h += `<button class="chip" type="button" data-a="layout">Layout: ${layout === 'grid' ? 'Even grid' : 'Big + small'}</button>`;
   if (n > 1 && layout === 'focus' && sel !== big) h += `<button class="chip" type="button" data-a="big">Make this one big</button>`;
   h += `<button class="chip${clean ? ' on' : ''}" type="button" data-a="clean">Fill tiles</button>`;
+  if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual">Quality: ${esc(qualLabel(q))}</button>`;
   if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src">Source: ${esc(srcs[t.si].name)}</button>`;
   h += `<button class="chip" type="button" data-a="tap">Tap video</button>`;
   h += `<button class="chip" type="button" data-a="full">Full screen</button>`;
@@ -188,6 +201,13 @@ function redrawKeep(a) {
 $('chips').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const a = b.dataset.a, t = tiles[sel];
+  if (b.dataset.q != null) { send(sel, 'quality', b.dataset.q); qualOpen = false; setTimeout(() => redrawKeep('qual'), 700); redrawKeep('qual'); return; }
+  if (a === 'qual' || a === 'qdone') {
+    qualOpen = a === 'qual'; drawBar();
+    const el = $('chips').querySelector(qualOpen ? '.chip.on' : '[data-a="qual"]') || $('chips').querySelector('button');
+    if (el && nav()) nav().focus(el, { noScroll: true });
+    return;
+  }
   if (a === 'back') { history.length > 1 ? history.back() : (location.href = 'index.html'); return; }
   if (!t) return;
   if (a === 'audio') { setAudio(sel); redrawKeep('layout'); }

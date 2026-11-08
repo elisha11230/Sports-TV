@@ -65,7 +65,7 @@ Add them on the TV (Settings, Stream sources) or in `sources.json`:
 In the player, "Tap player" taps the middle of the screen for players that need a click to start, and "Open full page" loads a player site directly if it doesn't allow being shown inside another page.
 
 ### Remote control of embedded players (Fire TV app)
-The app adds a small script (`android/app/src/main/assets/frame-control.js`) inside every embedded player. It finds the player's `<video>` (Shaka Player and most web players use one) and takes commands from the player page: play/pause, skip 10 seconds, go live, mute and fill screen. With the controls bar closed, Select plays or pauses and left/right skip. Commands carry a key the app makes at each launch, so other pages can't drive it.
+The app adds a small script (`android/app/src/main/assets/frame-control.js`) inside every embedded player. It finds the player's `<video>` (Shaka Player and most web players use one) and takes commands from the player page: play/pause, skip 10 seconds, go live, mute, fill screen and quality. Quality works when the embed uses Shaka Player or hls.js: the script finds the player behind the video and lists its qualities (Auto, 1080p, 720p…). With the controls bar closed, Select plays or pauses and left/right skip. Commands carry a key the app makes at each launch, so other pages can't drive it.
 
 ### Popups and redirects
 Embedded players can't open popups or send the app to another site: the frame runs sandboxed, its `window.open` does nothing, and the app itself drops popups and outside redirects while the player page is showing. If a player refuses to load sandboxed, set `"sandbox": false` on that source (or choose "Allow" in the source's settings on the TV).

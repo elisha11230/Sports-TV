@@ -46,7 +46,14 @@ let G = {}; try { G = JSON.parse(q.get('g') || '{}'); } catch (e) {}
 const nav = () => window.__tvNav;
 const bridge = STV.bridge;
 let sources = [], cur = -1, hideT = null, hls = null;
-let KEY = null, ctl = null, pollT = null;   // remote control of an embedded player (Fire TV app only)
+let KEY = null, ctl = null, pollT = null, qualOpen = false;
+// the quality chip's label: "Auto (720p)" or the chosen one
+function qualLabel(q) {
+  if (!q) return '';
+  if (q.cur === 'auto') return 'Auto' + (q.now ? ` (${q.now})` : '');
+  const it = q.list.find(x => x.id === q.cur);
+  return it ? it.label : q.now || 'Auto';
+}   // remote control of an embedded player (Fire TV app only)
 
 function message(t) { $('msg').innerHTML = t; $('msg').hidden = !t; }
 function showBar(ms) {
@@ -58,7 +65,7 @@ function showBar(ms) {
     if (!f || !$('bar').contains(f)) { const on = $('chips').querySelector('.on') || $('chips').querySelector('button'); if (on && nav()) nav().focus(on, { noScroll: true }); }
   }, 30);
 }
-function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); }
+function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); if (qualOpen) { qualOpen = false; drawBar(); } }
 const barOpen = () => !$('bar').classList.contains('off');
 
 function stop() {
@@ -112,6 +119,15 @@ async function play(i) {
 }
 function drawBar() {
   const s = sources[cur];
+  if (qualOpen && ctl && ctl.q && ctl.q.list.length) {
+    // the quality picker takes over the bar until a choice is made
+    const q = ctl.q;
+    $('chips').innerHTML = [['auto', 'Auto'], ...q.list.map(x => [x.id, x.label])]
+      .map(([id, label]) => `<button class="chip${q.cur === id ? ' on' : ''}" type="button" data-q="${esc(id)}">${esc(label)}</button>`).join('')
+      + `<button class="chip" type="button" data-act="qdone">Done</button>`;
+    $('hint').textContent = 'Pick a quality · Auto lets the player choose';
+    return;
+  }
   $('ttl').textContent = G.title || 'Watch';
   $('srcname').textContent = s ? s.name : '';
   let html = sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}">${esc(x.name)}</button>`).join('');
@@ -120,7 +136,8 @@ function drawBar() {
       + `<button class="chip" type="button" data-act="back10">⟲ 10s</button><button class="chip" type="button" data-act="fwd10">10s ⟳</button>`
       + (ctl && ctl.live ? `<button class="chip" type="button" data-act="live">● Go live</button>` : '')
       + `<button class="chip" type="button" data-act="mute">${ctl && ctl.muted ? 'Unmute' : 'Mute'}</button>`
-      + `<button class="chip${ctl && ctl.filled ? ' on' : ''}" type="button" data-act="fill">Fill screen</button>`;
+      + `<button class="chip${ctl && ctl.filled ? ' on' : ''}" type="button" data-act="fill">Fill screen</button>`
+      + (ctl && ctl.q && ctl.q.list.length ? `<button class="chip" type="button" data-act="qual">Quality: ${esc(qualLabel(ctl.q))}</button>` : '');
     html += `<button class="chip" type="button" data-act="tap">Tap player</button><button class="chip" type="button" data-act="full">Open full page</button>`;
   }
   if (s && s.type === 'video') html += `<button class="chip" type="button" data-act="pp">Play / pause</button>`;
@@ -159,7 +176,7 @@ window.addEventListener('message', e => {
   const was = ctl;
   ctl = d.s;
   // redraw the buttons only when their labels change, so the remote keeps its place
-  const sig = c => c ? [c.has, c.paused, c.muted, c.live, c.filled].join() : '';
+  const sig = c => c ? [c.has, c.paused, c.muted, c.live, c.filled, c.q ? c.q.cur + c.q.now + c.q.list.length : ''].join() : '';
   if (sig(was) !== sig(ctl) && barOpen()) {
     const f2 = nav() && nav().focused(), act = f2 && f2.dataset ? f2.dataset.act || f2.dataset.i : null;
     drawBar();
@@ -182,6 +199,17 @@ function control(a) {
 $('chips').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.i != null) { play(+b.dataset.i); showBar(); return; }
+  if (b.dataset.q != null) {
+    send('quality', b.dataset.q); qualOpen = false; drawBar(); showBar();
+    const el = $('chips').querySelector('[data-act="qual"]'); if (el && nav()) nav().focus(el, { noScroll: true });
+    return;
+  }
+  if (b.dataset.act === 'qual' || b.dataset.act === 'qdone') {
+    qualOpen = b.dataset.act === 'qual'; drawBar(); showBar();
+    const el = $('chips').querySelector(qualOpen ? '.chip.on' : '[data-act="qual"]') || $('chips').querySelector('button');
+    if (el && nav()) nav().focus(el, { noScroll: true });
+    return;
+  }
   const a = b.dataset.act;
   if (a === 'back') { if (history.length > 1) history.back(); else location.href = 'index.html'; }
   else if (['pp', 'back10', 'fwd10', 'live', 'mute', 'fill'].includes(a) && sources[cur] && sources[cur].type === 'embed') { control(a); showBar(); }
