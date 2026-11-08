@@ -1,4 +1,4 @@
-/* Press Box TV: remote control for embedded players.
+/* EB Sports: remote control for embedded players.
    The Fire TV app adds this to every frame shown inside another page. It waits for commands
    from the page above it (play/pause, skip, go live, mute, fill screen) and applies them to the
    largest <video> in the frame, which is where Shaka Player and most web players draw.

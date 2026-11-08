@@ -30,7 +30,7 @@ import java.net.URL;
  * person presses Install.
  */
 class Updater {
-    static final String TAG = "PressBoxTV";
+    static final String TAG = "EBSports";
     static final String LATEST = "https://api.github.com/repos/elisha11230/Sports-TV/releases/latest";
     static final long EVERY = 6L * 60 * 60 * 1000;
 
@@ -67,7 +67,7 @@ class Updater {
             try {
                 HttpURLConnection c = (HttpURLConnection) new URL(LATEST).openConnection();
                 c.setRequestProperty("Accept", "application/vnd.github+json");
-                c.setRequestProperty("User-Agent", "PressBoxTV");
+                c.setRequestProperty("User-Agent", "EBSports");
                 c.setConnectTimeout(10000);
                 c.setReadTimeout(15000);
                 int code = c.getResponseCode();
@@ -95,7 +95,7 @@ class Updater {
         if (busy || act.isFinishing()) return;
         new AlertDialog.Builder(act, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
             .setTitle("Update available")
-            .setMessage("Press Box TV build " + build + " is ready. You have build " + BuildConfig.VERSION_CODE + ".")
+            .setMessage("EB Sports build " + build + " is ready. You have build " + BuildConfig.VERSION_CODE + ".")
             .setPositiveButton("Update", (d, w) -> download(build, url))
             .setNegativeButton("Later", (d, w) -> skipped = build)
             .show();
@@ -117,11 +117,11 @@ class Updater {
                 File[] old = dir.listFiles();
                 if (old != null) for (File f : old) //noinspection ResultOfMethodCallIgnored
                     f.delete();
-                File apk = new File(dir, "PressBoxTV-" + build + ".apk");
+                File apk = new File(dir, "EBSports-" + build + ".apk");
 
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setInstanceFollowRedirects(true);
-                c.setRequestProperty("User-Agent", "PressBoxTV");
+                c.setRequestProperty("User-Agent", "EBSports");
                 c.setConnectTimeout(15000);
                 c.setReadTimeout(30000);
                 int code = c.getResponseCode();
@@ -159,7 +159,7 @@ class Updater {
         if (Build.VERSION.SDK_INT >= 26 && !act.getPackageManager().canRequestPackageInstalls()) {
             new AlertDialog.Builder(act, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
                 .setTitle("One time setup")
-                .setMessage("Let Press Box TV install its updates: Settings → My Fire TV → Developer Options → Install unknown apps → Press Box TV → On. Then choose Update again.")
+                .setMessage("Let EB Sports install its updates: Settings → My Fire TV → Developer Options → Install unknown apps → EB Sports → On. Then choose Update again.")
                 .setPositiveButton("Open settings", (d, w) -> {
                     try {
                         act.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + act.getPackageName())));

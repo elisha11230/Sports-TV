@@ -49,7 +49,7 @@ import java.io.InputStream;
 import java.io.ByteArrayOutputStream;
 
 /**
- * Press Box TV: a full screen web view of the sports pages on GitHub Pages, set up for a TV remote.
+ * EB Sports: a full screen web view of the sports pages on GitHub Pages, set up for a TV remote.
  *
  * The pages do the real work. This app adds what a page can't do on its own:
  *  - loads the remote layer (tv-nav.js) into every page it opens, NBA and NFL apps included
@@ -58,7 +58,7 @@ import java.io.ByteArrayOutputStream;
  */
 public class MainActivity extends Activity {
 
-    static final String TAG = "PressBoxTV";
+    static final String TAG = "EBSports";
     static final String ORIGIN = "https://elisha11230.github.io";
     static final String HOME = ORIGIN + "/Sports-TV/";
 

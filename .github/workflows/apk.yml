@@ -2,7 +2,8 @@ name: Build the Fire TV app
 
 # Runs when anything in android/ changes, or by hand from the Actions tab.
 # The finished APK goes on a GitHub Release, so this link always gets the newest one:
-#   https://github.com/elisha11230/Sports-TV/releases/latest/download/PressBoxTV.apk
+#   https://github.com/elisha11230/Sports-TV/releases/latest/download/EBSports.apk
+# (PressBoxTV.apk, the old name, is attached too so the first link keeps working)
 on:
   push:
     paths: ['android/**', '.github/workflows/apk.yml']
@@ -51,17 +52,21 @@ jobs:
           STV_KEYSTORE_PASSWORD: ${{ secrets.STV_KEYSTORE_PASSWORD }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
-      - run: cp android/app/build/outputs/apk/release/app-release.apk PressBoxTV.apk
+      - run: |
+          cp android/app/build/outputs/apk/release/app-release.apk EBSports.apk
+          cp EBSports.apk PressBoxTV.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: PressBoxTV
-          path: PressBoxTV.apk
+          name: EBSports
+          path: EBSports.apk
 
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-${{ github.run_number }}
-          name: Press Box TV build ${{ github.run_number }}
-          body: Install on the Fire TV with Downloader, using https://github.com/elisha11230/Sports-TV/releases/latest/download/PressBoxTV.apk
-          files: PressBoxTV.apk
+          name: EB Sports build ${{ github.run_number }}
+          body: Install on the Fire TV with Downloader, using https://github.com/elisha11230/Sports-TV/releases/latest/download/EBSports.apk
+          files: |
+            EBSports.apk
+            PressBoxTV.apk
           make_latest: true
