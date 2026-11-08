@@ -8,6 +8,7 @@ Your NBA and NFL apps on a Fire TV, run from the remote. College football and ML
 |---|---|
 | `index.html` | The TV home screen: a tile for each sport, the day's games (scores hidden until you choose), and Settings. |
 | `player.html` | Full screen player for a game, using the stream sources you set up. |
+| `multi.html` | Multiview: up to four games at once. |
 | `tv/tv-nav.js` | The remote layer. Arrow keys move a highlight to the nearest item, Select clicks it, Back closes the top panel. The Fire TV app adds it to every page, so the NBA and NFL apps work from the remote with no changes to them. |
 | `tv/common.js` | Settings, stream sources and filling in addresses, shared by the home screen and player. |
 | `sources.json` | Stream sources every TV picks up. Starts empty. |
@@ -68,6 +69,12 @@ The app adds a small script (`android/app/src/main/assets/frame-control.js`) ins
 
 ### Popups and redirects
 Embedded players can't open popups or send the app to another site: the frame runs sandboxed, its `window.open` does nothing, and the app itself drops popups and outside redirects while the player page is showing. If a player refuses to load sandboxed, set `"sandbox": false` on that source (or choose "Allow" in the source's settings on the TV).
+
+## Multiview and RedZone
+
+Open a game on the home screen and choose "Add to multiview" (up to four games), then "Open multiview" or the Multiview button by the sport filters. With the options bar closed, the arrows pick a game, Select moves the sound to it, and Menu (☰) opens the options: layout (even grid, or one big plus the rest small), make the selected game big, fill tiles, switch source, tap video, full screen, remove. Sound switching and fill need the Fire TV app.
+
+On days with NFL games a RedZone card leads the NFL list. It plays from the same sources with the team codes set to `redzone`, so a `/{sport}/{homeNick}` address becomes `/nfl/redzone`. RedZone can go in multiview too.
 
 ## Adding a sport
 

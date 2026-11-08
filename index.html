@@ -75,6 +75,12 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02e
 .sport-h{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:8px 0 -2px;font-family:var(--display);font-size:18px;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
 .sport-h::after{content:"";flex:1;height:1px;background:var(--line)}
 .foot{margin-top:18px;color:var(--ink3);font-size:12px}
+.mvbadge{position:absolute;top:8px;right:10px;font-family:var(--display);font-size:12px;letter-spacing:.08em;color:var(--gold);border:1px solid var(--gold);border-radius:6px;padding:0 6px}
+.game{position:relative}
+.game.rz{background:linear-gradient(135deg,#2A1416,#17233A);border-color:#5A2A30}
+.game.rz h4{margin:4px 0 0;font-family:var(--display);font-size:26px;letter-spacing:.06em;text-transform:uppercase;color:#FF6B6B}
+.game.rz p{margin:0;color:var(--ink2);font-size:13px}
+.chip.mv{border-color:var(--gold);color:var(--gold)}
 
 /* panels */
 .layer{position:fixed;inset:0;z-index:50;background:rgba(5,9,16,.72);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -121,6 +127,7 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
 <div class="bar">
   <h3>Games</h3>
   <div id="filters" class="seg"></div>
+  <button class="chip mv" id="mvbtn" type="button" hidden></button>
   <div class="datebox">
     <button class="chip" id="prevday" type="button" aria-label="Previous day">◀</button>
     <div class="day" id="day"></div>
@@ -265,10 +272,22 @@ function gameCard(g) {
     const rec = hid && g.state === 'post' ? '' : t.rec;
     return `<div class="trow${lose ? ' lose' : ''}">${t.logo ? `<img src="${esc(t.logo)}" alt="">` : ''}<b>${esc(t.abbr)}</b><small>${esc(rec)}</small>${sc}</div>`;
   };
-  return `<button class="game" type="button" data-g="${esc(g.sport + ':' + g.id)}" style="--c:var(--${g.sport})">
+  return `<button class="game" type="button" data-g="${esc(g.sport + ':' + g.id)}" style="--c:var(--${g.sport})">${inMulti(g.sport + ':' + g.id) ? '<span class="mvbadge">MULTI</span>' : ''}
     <div class="gtop"><span class="tag">${esc(SPORTS[g.sport].name)}</span><span class="st${g.state === 'in' ? ' live' : ''}">${esc(statusText(g))}</span></div>
     ${g.teams.map(row).join('')}
     ${g.note ? `<div class="gnote">${esc(g.note)}</div>` : ''}</button>`;
+}
+/* NFL RedZone: shown on any day with NFL games; it plays from the same sources at /nfl/redzone */
+function redzoneGame(ev) {
+  ev = ev || cache['nfl:' + ymd(state.date)]?.events || [];
+  const live = ev.some(g => g.state === 'in');
+  return { id: 'redzone', sport: 'nfl', redzone: true, state: live ? 'in' : 'pre', date: state.date, teams: [] };
+}
+function redzoneCard(ev) {
+  const g = redzoneGame(ev);
+  return `<button class="game rz" type="button" data-g="nfl:redzone" style="--c:var(--nfl)">${inMulti('nfl:redzone') ? '<span class="mvbadge">MULTI</span>' : ''}
+    <div class="gtop"><span class="tag">NFL</span><span class="st${g.state === 'in' ? ' live' : ''}">${g.state === 'in' ? 'Live' : 'Sunday'}</span></div>
+    <h4>RedZone</h4><p>Every touchdown from every game</p></button>`;
 }
 function liveCount(s) { return (cache[s + ':' + ymd(state.date)]?.events || []).filter(g => g.state === 'in').length; }
 function renderTiles() {
@@ -287,6 +306,9 @@ function renderBar() {
     : state.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   $('today').hidden = sel === t;
   $('spoilbtn').textContent = S.spoilers ? '◌ Scores hidden' : '◉ Scores shown';
+  const mv = multi();
+  $('mvbtn').hidden = !mv.length;
+  $('mvbtn').textContent = `▦ Multiview (${mv.length})`;
 }
 function renderGames() {
   const key = ymd(state.date), show = S.filter === 'all' ? ACTIVE : [S.filter];
@@ -298,6 +320,7 @@ function renderGames() {
     if (!ev.length && !err) continue;
     any = true;
     if (show.length > 1) html += `<div class="sport-h" style="--c:var(--${s})">${esc(SPORTS[s].name)}</div>`;
+    if (s === 'nfl' && ev.length) html += redzoneCard(ev);
     html += err ? `<div class="empty">Couldn't load ${esc(SPORTS[s].name)} games (${esc(err)}).</div>` : ev.map(gameCard).join('');
   }
   if (!any) html = `<div class="empty">${loading ? 'Loading games…' : 'No games on this day.'}</div>`;
@@ -310,33 +333,64 @@ function renderGames() {
 function render() { renderTiles(); renderBar(); renderGames(); }
 function findGame(key) {
   const [s, id] = key.split(':');
+  if (key === 'nfl:redzone') return redzoneGame();
   return (cache[s + ':' + ymd(state.date)]?.events || []).find(g => g.id === id);
 }
 
 /* ---------- a game's options ---------- */
 function gameVars(g) {
-  const [a, h] = g.teams;
   const etd = STV.etDay(g.date);
+  if (g.redzone) return {
+    sport: 'nfl', gameId: 'redzone', date: etd, yyyymmdd: etd.replace(/-/g, ''), away: 'redzone', home: 'redzone',
+    AWAY: 'REDZONE', HOME: 'REDZONE', awayNick: 'redzone', homeNick: 'redzone', awayName: 'redzone', homeName: 'redzone',
+    title: 'NFL RedZone', key: 'nfl:redzone'
+  };
+  const [a, h] = g.teams;
   return {
     sport: g.sport, gameId: g.id, date: etd, yyyymmdd: etd.replace(/-/g, ''),
     away: (a.abbr || '').toLowerCase(), home: (h.abbr || '').toLowerCase(), AWAY: a.abbr, HOME: h.abbr,
     awayNick: STV.slug(a.nick), homeNick: STV.slug(h.nick), awayName: STV.slug(a.full), homeName: STV.slug(h.full),
-    title: `${a.abbr} at ${h.abbr}`
+    title: `${a.abbr} at ${h.abbr}`, key: `${g.sport}:${g.id}`
   };
 }
+/* ---------- multiview: up to 4 games, kept for this visit ---------- */
+const MULTI_MAX = 4;
+const multi = () => { try { return JSON.parse(sessionStorage.getItem('stv.multi') || '[]'); } catch (e) { return []; } };
+const saveMulti = l => sessionStorage.setItem('stv.multi', JSON.stringify(l));
+const inMulti = key => multi().some(v => v.key === key);
+function toggleMulti(g) {
+  const v = gameVars(g), l = multi(), i = l.findIndex(x => x.key === v.key);
+  if (i >= 0) { l.splice(i, 1); saveMulti(l); return false; }
+  if (l.length >= MULTI_MAX) { nav() && nav().toast(`Multiview holds ${MULTI_MAX} games`); return null; }
+  l.push(v); saveMulti(l); return true;
+}
+
 let sheetGame = null;
 async function openGame(key) {
   const g = findGame(key); if (!g) return;
   sheetGame = g;
-  const [a, h] = g.teams;
-  $('gs-title').textContent = `${a.short} at ${h.short}`;
-  $('gs-sub').textContent = `${SPORTS[g.sport].name} · ${statusText(g)}`;
+  if (g.redzone) {
+    $('gs-title').textContent = 'NFL RedZone';
+    $('gs-sub').textContent = 'Every touchdown from every game' + (g.state === 'in' ? ' · Live' : '');
+  } else {
+    const [a, h] = g.teams;
+    $('gs-title').textContent = `${a.short} at ${h.short}`;
+    $('gs-sub').textContent = `${SPORTS[g.sport].name} · ${statusText(g)}`;
+  }
   const srcs = await STV.sourcesFor(g.sport);
   const v = encodeURIComponent(JSON.stringify(gameVars(g)));
-  let html = srcs.map(s => `<button class="act primary" type="button" data-watch="${esc(s.id)}">▶ Watch on ${esc(s.name)}<small>${s.type === 'app' ? 'opens the app' : s.type === 'video' ? 'stream' : 'player'}</small></button>`).join('');
+  const what = g.redzone ? 'RedZone' : 'game';
+  // the first source is the main Watch button; any others are listed as alternatives
+  const players = srcs.filter(s => s.type !== 'app'), apps = srcs.filter(s => s.type === 'app');
+  let html = players.map((s, i) => i === 0
+    ? `<button class="act primary" type="button" data-watch="${esc(s.id)}">▶ Watch ${what}</button>`
+    : `<button class="act" type="button" data-watch="${esc(s.id)}">▶ Watch ${what} <small>${esc(s.name)}</small></button>`).join('');
+  html += apps.map(s => `<button class="act" type="button" data-watch="${esc(s.id)}">Open ${esc(s.name)}<small>app</small></button>`).join('');
   if (!srcs.length) html += `<p class="note">No stream sources set up for ${esc(SPORTS[g.sport].name)} yet. Add one in Settings.</p>`;
-  html += `<button class="act" type="button" data-open="1">Open in the ${esc(SPORTS[g.sport].name)} app</button>`;
-  if (g.state !== 'pre' && S.spoilers) html += `<button class="act" type="button" data-reveal="1">${revealed.has(g.id) ? 'Hide the score' : 'Show the score'}</button>`;
+  if (players.length) html += `<button class="act" type="button" data-multi="1">${inMulti(g.sport + ':' + g.id) ? '✓ In multiview · remove' : '＋ Add to multiview'}<small>${multi().length}/${MULTI_MAX}</small></button>`;
+  if (multi().length) html += `<button class="act" type="button" data-mvgo="1">▦ Open multiview (${multi().length})</button>`;
+  if (!g.redzone) html += `<button class="act" type="button" data-open="1">Open in the ${esc(SPORTS[g.sport].name)} app</button>`;
+  if (!g.redzone && g.state !== 'pre' && S.spoilers) html += `<button class="act" type="button" data-reveal="1">${revealed.has(g.id) ? 'Hide the score' : 'Show the score'}</button>`;
   if (!srcs.length) html += `<button class="act" type="button" data-settings="1">Settings</button>`;
   html += `<button class="act" type="button" data-close="1">Close</button>`;
   $('gs-acts').innerHTML = html;
@@ -354,7 +408,13 @@ $('gs-acts').addEventListener('click', async e => {
       return;
     }
     location.href = `player.html?g=${$('gs-acts').dataset.v}&s=${encodeURIComponent(b.dataset.watch)}`;
-  } else if (b.dataset.open) location.href = SPORTS[g.sport].link(g);
+  } else if (b.dataset.multi) {
+    const r = toggleMulti(g);
+    if (r === null) return;
+    hideLayer('gamesheet'); render(); refocus(`[data-g="${g.sport}:${g.id}"]`);
+    nav() && nav().toast(r ? `Added to multiview (${multi().length}/${MULTI_MAX})` : 'Removed from multiview');
+  } else if (b.dataset.mvgo) location.href = 'multi.html';
+  else if (b.dataset.open) location.href = SPORTS[g.sport].link(g);
   else if (b.dataset.reveal) {
     revealed.has(g.id) ? revealed.delete(g.id) : revealed.add(g.id);
     sessionStorage.setItem('stv.revealed', JSON.stringify([...revealed]));
@@ -459,6 +519,7 @@ $('filters').addEventListener('click', e => {
   const b = e.target.closest('[data-f]'); if (!b) return;
   S.filter = b.dataset.f; STV.saveSettings(S); render(); refocus(`[data-f="${S.filter}"]`);
 });
+$('mvbtn').onclick = () => { location.href = 'multi.html'; };
 $('games').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (b) openGame(b.dataset.g); });
 const stepDay = n => { state.date = addDays(state.date, n); load(); };
 $('prevday').onclick = () => stepDay(-1);

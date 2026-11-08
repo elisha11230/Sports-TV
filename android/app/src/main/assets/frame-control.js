@@ -45,7 +45,8 @@
   var filled = null, savedStyle = '';
   function fill(v, on) {
     if (on) {
-      if (filled && filled !== v) fill(filled, false);
+      if (filled === v) return;
+      if (filled) fill(filled, false);
       filled = v; savedStyle = v.getAttribute('style') || '';
       v.style.cssText += ';position:fixed!important;left:0!important;top:0!important;width:100vw!important;height:100vh!important;' +
         'max-width:none!important;max-height:none!important;z-index:2147483647!important;background:#000!important;' +
@@ -74,8 +75,9 @@
         break;
       }
       case 'live': { var e2 = edges(v); v.currentTime = Math.max(e2[0], e2[1] - 3); var p3 = v.play(); if (p3 && p3.catch) p3.catch(function () {}); break; }
-      case 'mute': v.muted = !v.muted; break;
-      case 'fill': fill(v, filled !== v); break;
+      // with a value these set the state; without one they flip it
+      case 'mute': v.muted = typeof c.v === 'boolean' ? c.v : !v.muted; break;
+      case 'fill': fill(v, typeof c.v === 'boolean' ? c.v : filled !== v); break;
       case 'status': break;
     }
   }
@@ -97,7 +99,12 @@
       }
     } else if (d.stv === 'status' && e.source !== window.parent) {
       // a video further down answered; send it up toward the player page
-      if (d.s && d.s.has) reply(d.s);
+      if (d.s && d.s.has) {
+        // when that video fills its frame, stretch the frame holding it over this page too
+        var fr2 = document.querySelectorAll('iframe,frame');
+        for (var j = 0; j < fr2.length; j++) if (fr2[j].contentWindow === e.source) { fill(fr2[j], !!d.s.filled); break; }
+        reply(d.s);
+      }
     }
   });
 })();

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multiview · Press Box TV</title>
+<style>
+:root{--ink:#EAF0F8;--ink2:#A7B4CA;--gold:#FFD54A}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:Barlow,Roboto,system-ui,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+/* the games */
+#grid{position:fixed;inset:0;display:grid;gap:3px;background:#000;align-content:center;align-items:center}
+#grid.n1{grid-template-columns:1fr}
+#grid.grid.n2{grid-template-columns:1fr 1fr}
+#grid.grid.n3,#grid.grid.n4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;align-content:stretch;align-items:stretch}
+#grid.focus.n2{grid-template-columns:2fr 1fr}
+#grid.focus.n3{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;align-content:stretch;align-items:stretch}
+#grid.focus.n4{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr 1fr;align-content:stretch;align-items:stretch}
+#grid.focus .tile.big{grid-row:1/-1;order:-1}
+#grid.n1 .tile,#grid.n2 .tile{aspect-ratio:16/9}
+.tile{position:relative;background:#05080E;overflow:hidden;min-height:0}
+.tile iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.tile::after{content:"";position:absolute;inset:0;pointer-events:none;border:3px solid transparent;transition:border-color .15s}
+.tile.sel::after{border-color:var(--gold)}
+.cap{position:absolute;left:8px;top:8px;z-index:2;display:flex;gap:8px;align-items:center;padding:3px 10px;border-radius:8px;
+  background:rgba(0,0,0,.7);font-size:13px;font-weight:600;pointer-events:none;opacity:.55;transition:opacity .2s}
+.tile.sel .cap,.tile.aud .cap{opacity:1}
+.cap .st{color:var(--ink2);font-weight:500}
+.cap .sp{display:none;color:var(--gold)}
+.tile.aud .cap .sp{display:inline}
+.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--ink2);font-size:15px}
+
+/* options bar */
+#bar{position:fixed;left:0;right:0;top:0;z-index:10;padding:16px 26px 36px;background:linear-gradient(rgba(0,0,0,.9),rgba(0,0,0,.6) 70%,transparent);
+  display:flex;flex-direction:column;gap:10px;transition:opacity .25s}
+#bar.off{opacity:0;pointer-events:none;visibility:hidden}
+.ttl{display:flex;align-items:baseline;gap:14px}
+.ttl h1{margin:0;font-size:24px;font-weight:700}
+.ttl span{color:var(--ink2);font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:8px 15px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(20,28,44,.88);font-weight:600;font-size:15px}
+.chip:hover{background:rgba(40,54,82,.96)}
+.chip.on{background:var(--ink);color:#0A111E;border-color:var(--ink)}
+.hint{color:var(--ink2);font-size:13px}
+#msg{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px;color:var(--ink2);font-size:18px;line-height:1.5}
+#msg[hidden]{display:none}
+</style>
+<script>window.__STV_FORCE = 1</script>
+<script src="tv/tv-nav.js"></script>
+<script src="tv/common.js"></script>
+</head>
+<body>
+<div id="grid"></div>
+<div id="msg" hidden></div>
+<div id="bar" class="off" role="dialog" aria-modal="true" aria-label="Multiview options">
+  <div class="ttl"><h1>Multiview</h1><span id="sub"></span></div>
+  <div class="chips" id="chips"></div>
+  <div class="hint" id="hint"></div>
+</div>
+<script>
+'use strict';
+/* Up to four games at once. With the options bar closed: arrows pick a game, Select moves the
+   sound to it, Menu (☰) opens the options. In the Fire TV app each game's player takes commands
+   (mute, play, fill screen) through the same keyed script the single player uses. */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nav = () => window.__tvNav;
+const bridge = STV.bridge;
+const SPORT_NAME = { nba: 'NBA', nfl: 'NFL', cfb: 'College', mlb: 'MLB' };
+
+const multi = () => { try { return JSON.parse(sessionStorage.getItem('stv.multi') || '[]'); } catch (e) { return []; } };
+const saveMulti = l => sessionStorage.setItem('stv.multi', JSON.stringify(l));
+
+let KEY = null, tiles = [], sel = 0, audio = 0, big = 0, hideT = null;
+let layout = STV.store.get('stv.mvLayout', 'grid');
+let clean = STV.store.get('stv.mvClean', true);
+
+/* ---------- building the grid ---------- */
+function frameFor(t) {
+  const s = t.srcs[t.si];
+  if (!s) return `<div class="empty">No stream source for ${esc(SPORT_NAME[t.v.sport] || t.v.sport)}. Add one in Settings.</div>`;
+  const url = STV.fill(s.url, t.v, s.codes);
+  if (s.type === 'video') return `<iframe data-video="1" srcdoc="${esc(videoDoc(url))}" allow="autoplay; fullscreen"></iframe>`;
+  const sb = s.sandbox !== false ? ' sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"' : '';
+  return `<iframe src="${esc(url)}"${sb} allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>`;
+}
+// a direct stream plays in a small page of its own, so every tile takes the same commands
+function videoDoc(url) {
+  return `<!doctype html><body style="margin:0;background:#000"><video src="${esc(url)}" autoplay muted playsinline style="width:100%;height:100vh;object-fit:contain"></video>` +
+    (/\.m3u8/i.test(url) ? `<script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"><\/script><script>var v=document.querySelector('video');` +
+      `if(!v.canPlayType('application/vnd.apple.mpegurl')&&window.Hls&&Hls.isSupported()){var h=new Hls();h.loadSource(${JSON.stringify(url)});h.attachMedia(v);}<\/script>` : '') +
+    `</body>`;
+}
+function tileEl(i) { return $('grid').children[i]; }
+function build() {
+  $('grid').innerHTML = tiles.map((t, i) =>
+    `<div class="tile" data-i="${i}">${frameFor(t)}<div class="cap"><span class="sp">🔊</span><b>${esc(t.v.title)}</b><span class="st"></span></div></div>`).join('');
+  tiles.forEach((t, i) => hookFrame(i));
+  paint();
+}
+function hookFrame(i) {
+  const f = tileEl(i).querySelector('iframe');
+  tiles[i].st = null;
+  if (f) f.addEventListener('load', () => setTimeout(() => send(i, 'status'), 800));
+}
+function paint() {
+  const n = tiles.length;
+  $('grid').className = `n${n} ${n > 1 ? layout : 'grid'}`;
+  tiles.forEach((t, i) => {
+    const el = tileEl(i);
+    el.classList.toggle('sel', i === sel && n > 1);
+    el.classList.toggle('aud', i === audio);
+    el.classList.toggle('big', i === big);
+    const st = el.querySelector('.st');
+    st.textContent = !KEY ? '' : !t.st ? 'connecting…' : !t.st.has ? 'tap video' : t.st.paused ? 'paused' : '';
+  });
+}
+
+/* ---------- commands to each game's player ---------- */
+function send(i, a, v) {
+  const el = tileEl(i), f = el && el.querySelector('iframe');
+  if (!f || !f.contentWindow || !KEY) return;
+  try { f.contentWindow.postMessage({ stv: 'cmd', key: KEY, a, v }, '*'); } catch (e) {}
+}
+function setAudio(i) {
+  audio = i;
+  tiles.forEach((t, j) => send(j, 'mute', j !== i));
+  send(i, 'play');
+  paint();
+}
+window.addEventListener('message', e => {
+  const d = e.data;
+  if (!d || d.stv !== 'status' || !KEY || d.key !== KEY) return;
+  const i = tiles.findIndex((t, j) => { const f = tileEl(j) && tileEl(j).querySelector('iframe'); return f && f.contentWindow === e.source; });
+  if (i < 0) return;
+  const first = !(tiles[i].st && tiles[i].st.has) && d.s && d.s.has;
+  tiles[i].st = d.s;
+  if (first) {
+    // a player just answered: sound only on the chosen game, fill its tile, start it
+    send(i, 'mute', i !== audio);
+    if (clean) send(i, 'fill', true);
+    send(i, 'play');
+  }
+  paint();
+});
+setInterval(() => { if (!document.hidden) tiles.forEach((t, i) => send(i, 'status')); }, 3000);
+
+/* ---------- options bar ---------- */
+const barOpen = () => !$('bar').classList.contains('off');
+function showBar(ms) {
+  drawBar();
+  $('bar').classList.remove('off');
+  clearTimeout(hideT);
+  if (ms !== 0) hideT = setTimeout(hideBar, ms || 8000);
+  setTimeout(() => {
+    const f = nav() && nav().focused();
+    if (!f || !$('bar').contains(f)) { const b = $('chips').querySelector('button'); if (b && nav()) nav().focus(b, { noScroll: true }); }
+  }, 30);
+}
+function hideBar() { $('bar').classList.add('off'); clearTimeout(hideT); }
+function drawBar() {
+  const t = tiles[sel];
+  $('sub').textContent = t ? `Selected: ${t.v.title}${sel === audio ? ' · has the sound' : ''}` : '';
+  if (!t) { $('chips').innerHTML = `<button class="chip" type="button" data-a="back">Back to games</button>`; return; }
+  const n = tiles.length, srcs = t.srcs;
+  let h = '';
+  if (n > 1 && sel !== audio) h += `<button class="chip" type="button" data-a="audio">🔊 Sound to ${esc(t.v.title)}</button>`;
+  if (n > 1) h += `<button class="chip" type="button" data-a="layout">Layout: ${layout === 'grid' ? 'Even grid' : 'Big + small'}</button>`;
+  if (n > 1 && layout === 'focus' && sel !== big) h += `<button class="chip" type="button" data-a="big">Make this one big</button>`;
+  h += `<button class="chip${clean ? ' on' : ''}" type="button" data-a="clean">Fill tiles</button>`;
+  if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src">Source: ${esc(srcs[t.si].name)}</button>`;
+  h += `<button class="chip" type="button" data-a="tap">Tap video</button>`;
+  h += `<button class="chip" type="button" data-a="full">Full screen</button>`;
+  h += `<button class="chip" type="button" data-a="remove">Remove game</button>`;
+  h += `<button class="chip" type="button" data-a="back">Back to games</button>`;
+  $('chips').innerHTML = h;
+  $('hint').textContent = KEY
+    ? 'Bar closed: arrows pick a game · Select moves the sound to it · Menu (☰) opens this bar'
+    : 'Sound switching and controls work in the Fire TV app · Menu or Backspace closes this bar';
+}
+function redrawKeep(a) {
+  drawBar();
+  const el = $('chips').querySelector(`[data-a="${a}"]`) || $('chips').querySelector('button');
+  if (el && nav()) nav().focus(el, { noScroll: true });
+}
+$('chips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const a = b.dataset.a, t = tiles[sel];
+  if (a === 'back') { history.length > 1 ? history.back() : (location.href = 'index.html'); return; }
+  if (!t) return;
+  if (a === 'audio') { setAudio(sel); redrawKeep('layout'); }
+  else if (a === 'layout') { layout = layout === 'grid' ? 'focus' : 'grid'; STV.store.set('stv.mvLayout', layout); paint(); redrawKeep('layout'); }
+  else if (a === 'big') { big = sel; paint(); redrawKeep('layout'); }
+  else if (a === 'clean') { clean = !clean; STV.store.set('stv.mvClean', clean); tiles.forEach((x, i) => send(i, 'fill', clean)); redrawKeep('clean'); }
+  else if (a === 'src') {
+    t.si = (t.si + 1) % t.srcs.length;
+    const el = tileEl(sel); el.querySelector('iframe, .empty').outerHTML = frameFor(t);
+    hookFrame(sel); paint(); redrawKeep('src');
+  }
+  else if (a === 'tap') {
+    hideBar();
+    const r = tileEl(sel).getBoundingClientRect();
+    setTimeout(() => { if (bridge) bridge.call('tap', (r.left + r.width / 2) / innerWidth, (r.top + r.height / 2) / innerHeight); }, 300);
+  }
+  else if (a === 'full') {
+    const s = t.srcs[t.si];
+    location.href = `player.html?g=${encodeURIComponent(JSON.stringify(t.v))}${s ? '&s=' + encodeURIComponent(s.id) : ''}`;
+  }
+  else if (a === 'remove') {
+    const key = t.v.key;
+    saveMulti(multi().filter(v => v.key !== key));
+    tileEl(sel).remove(); tiles.splice(sel, 1);
+    if (!tiles.length) { location.href = 'index.html'; return; }
+    if (audio === sel) audio = 0; else if (audio > sel) audio--;
+    if (big === sel) big = 0; else if (big > sel) big--;
+    sel = Math.min(sel, tiles.length - 1);
+    tiles.forEach((x, i) => { tileEl(i).dataset.i = i; });
+    setAudio(audio);
+    redrawKeep('remove');
+  }
+});
+
+/* ---------- picking a game with the arrows ---------- */
+function moveSel(dir) {
+  const r = tileEl(sel).getBoundingClientRect(), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+  let best = -1, bs = Infinity;
+  tiles.forEach((t, i) => {
+    if (i === sel) return;
+    const q = tileEl(i).getBoundingClientRect(), x = (q.left + q.right) / 2, y = (q.top + q.bottom) / 2;
+    const dx = x - cx, dy = y - cy;
+    const ok = dir === 'right' ? dx > 5 : dir === 'left' ? dx < -5 : dir === 'down' ? dy > 5 : dy < -5;
+    if (!ok) return;
+    const sc = (dir === 'left' || dir === 'right') ? Math.abs(dx) + Math.abs(dy) * 2 : Math.abs(dy) + Math.abs(dx) * 2;
+    if (sc < bs) { bs = sc; best = i; }
+  });
+  if (best >= 0) { sel = best; paint(); return true; }
+  return false;
+}
+const DIRS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+window.addEventListener('keydown', e => {
+  if (barOpen()) { clearTimeout(hideT); hideT = setTimeout(hideBar, 8000); return; }
+  const k = e.key;
+  if (k === 'Backspace' || k === 'Escape') return;
+  if (DIRS[k]) { if (!tiles.length || (!moveSel(DIRS[k]) && DIRS[k] === 'up')) showBar(); }
+  else if (k === 'Enter' || e.keyCode === 23) { if (tiles.length) setAudio(sel); }
+  else showBar();
+  e.preventDefault(); e.stopImmediatePropagation();
+}, true);
+window.__tvMenu = () => { barOpen() ? hideBar() : showBar(); return true; };
+window.__tvMedia = a => { if (tiles[audio]) send(audio, a === 'ff' ? 'seek' : a === 'rw' ? 'seek' : 'playpause', a === 'ff' ? 10 : a === 'rw' ? -10 : undefined); return true; };
+window.__tvBackHook = () => { if (barOpen() && tiles.length) { hideBar(); return true; } return false; };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen()) hideBar(); });
+
+/* ---------- start ---------- */
+(async function () {
+  if (bridge) { bridge.call('keepAwake', true); KEY = await bridge.call('frameKey'); }
+  const list = multi().slice(0, 4);
+  if (!list.length) {
+    $('msg').innerHTML = 'No games in multiview yet.<br>On the home screen, open a game and choose “Add to multiview”.';
+    $('msg').hidden = false; showBar(0); return;
+  }
+  tiles = await Promise.all(list.map(async v => ({ v, si: 0, st: null, srcs: (await STV.sourcesFor(v.sport)).filter(s => s.type !== 'app') })));
+  build();
+  showBar(6000);
+  nav() && nav().toast('Arrows pick a game · Select moves the sound · Menu for options', 4000);
+})();
+addEventListener('pagehide', () => { if (bridge) bridge.call('keepAwake', false); });
+</script>
+</body>
+</html>
