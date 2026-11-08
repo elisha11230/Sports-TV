@@ -195,6 +195,8 @@
     else { if (c.bottom > r.top + slackY || cy >= ry) return null; p = Math.max(0, r.top - c.bottom); o = gap(r.left, r.right, c.left, c.right); a = Math.abs(cx - rx); }
     // left and right stay on roughly the same row; up and down may drift sideways more
     if ((dir === 'left' || dir === 'right') && o > Math.max(r.height, 40)) return null;
+    // something truly on the same row always beats something a little above or below, however close
+    if ((dir === 'left' || dir === 'right') && o > 0) return { s: 100000 + p + o * 2.5, p: p };
     if ((dir === 'up' || dir === 'down') && o > innerWidth * 0.6) return null;
     return { s: p + o * 2.5 + a * 0.1, p: p };
   }

@@ -35,9 +35,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #msg[hidden]{display:none}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081237"></script>
-<script src="tv/common.js?v=202611081237"></script>
-<script src="tv/boxscore.js?v=202611081237"></script>
+<script src="tv/tv-nav.js?v=202611081241"></script>
+<script src="tv/common.js?v=202611081241"></script>
+<script src="tv/boxscore.js?v=202611081241"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -183,7 +183,7 @@ function drawBar() {
     }
     html += '<span class="sep"></span>';
   }
-  if (G.gameId && /^(nba|nfl|cfb|mlb)$/.test(G.sport)) html += ic('box', 'stats', G.gameId === 'redzone' ? 'Scores around the NFL (or press Down)' : 'Box score (or press Down)', BOX.isOpen() ? 'on' : '') + '<span class="sep"></span>';
+  if (G.gameId && !G.channel && /^(nba|nfl|cfb|mlb)$/.test(G.sport)) html += ic('box', 'stats', G.gameId === 'redzone' ? 'Scores around the NFL (or press Down)' : 'Box score (or press Down)', BOX.isOpen() ? 'on' : '') + '<span class="sep"></span>';
   if (sources.length > 1) html += sources.map((x, i) => `<button class="chip${i === cur ? ' on' : ''}" type="button" data-i="${i}" aria-label="Source: ${esc(x.name)}">${esc(x.name)}</button>`).join('') + '<span class="sep"></span>';
   if (s && s.type === 'embed') html += ic('tap', 'tap', 'Tap the player (for players that need a click to start)') + ic('full', 'open', 'Open the full page');
   html += ic('back', 'back', 'Back to games');
@@ -297,7 +297,7 @@ $('chips').addEventListener('click', e => {
 window.addEventListener('keydown', e => {
   if (BOX.isOpen()) return;   // the box score takes the remote: Up/Down scroll it, Back closes it
   if (barOpen()) { showBar(); return; }   // any key keeps the bar up a little longer
-  if (e.key === 'ArrowDown' && G.gameId) { e.preventDefault(); e.stopImmediatePropagation(); BOX.open(G); return; }
+  if (e.key === 'ArrowDown' && G.gameId && !G.channel) { e.preventDefault(); e.stopImmediatePropagation(); BOX.open(G); return; }
   const k = e.key, s = sources[cur];
   const can = s && (s.type === 'video' || (s.type === 'embed' && KEY && ctl && ctl.has));
   if (can && (k === 'Enter' || e.keyCode === 23)) control('pp');
@@ -323,7 +323,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen())
 /* ---------- start ---------- */
 (async function () {
   if (bridge) { bridge.call('keepAwake', true); KEY = await bridge.call('frameKey'); }
-  sources = (await STV.sourcesFor(G.sport)).filter(s => s.type !== 'app');
+  sources = await STV.streamsFor(G);
   if (!sources.length) { message('No stream sources are set up for this sport.<br>Add one in Settings on the home screen.'); drawBar(); showBar(0); return; }
   const want = sources.findIndex(s => s.id === q.get('s'));
   await play(want >= 0 ? want : 0);

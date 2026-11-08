@@ -57,9 +57,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #msg[hidden]{display:none}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081237"></script>
-<script src="tv/common.js?v=202611081237"></script>
-<script src="tv/boxscore.js?v=202611081237"></script>
+<script src="tv/tv-nav.js?v=202611081241"></script>
+<script src="tv/common.js?v=202611081241"></script>
+<script src="tv/boxscore.js?v=202611081241"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -216,7 +216,7 @@ function drawBar() {
   h += ic('clean', 'fill', 'Fill tiles', clean ? 'on' : '');
   if (q && q.list.length) h += `<button class="chip" type="button" data-a="qual" aria-label="Quality for ${esc(t.v.title)}">${esc(qualLabel(q))}</button>`;
   if (srcs.length > 1) h += `<button class="chip" type="button" data-a="src" aria-label="Switch source">${esc(srcs[t.si].name)}</button>`;
-  if (/^(nba|nfl|cfb|mlb)$/.test(t.v.sport)) h += ic('box', 'stats', t.v.gameId === 'redzone' ? 'Scores around the NFL' : `Box score for ${t.v.title}`);
+  if (!t.v.channel && /^(nba|nfl|cfb|mlb)$/.test(t.v.sport)) h += ic('box', 'stats', t.v.gameId === 'redzone' ? 'Scores around the NFL' : `Box score for ${t.v.title}`);
   h += '<span class="sep"></span>';
   h += ic('tap', 'tap', 'Tap the video (for players that need a click to start)');
   h += ic('full', 'tv', 'Watch this game full screen');
@@ -323,7 +323,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen())
     $('msg').innerHTML = 'No games in multiview yet.<br>On the home screen, open a game and choose “Add to multiview”.';
     $('msg').hidden = false; showBar(0); return;
   }
-  tiles = await Promise.all(list.map(async v => ({ v, si: 0, st: null, srcs: (await STV.sourcesFor(v.sport)).filter(s => s.type !== 'app') })));
+  tiles = await Promise.all(list.map(async v => ({ v, si: 0, st: null, srcs: await STV.streamsFor(v) })));
   build();
   showBar(6000);
   nav() && nav().toast('Arrows move to a game and its sound · Menu for options', 4000);

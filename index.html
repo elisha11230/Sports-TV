@@ -69,6 +69,9 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02e
 .game.rz h4{margin:4px 0 0;font-family:var(--display);font-size:26px;letter-spacing:.06em;text-transform:uppercase;color:#FF6B6B}
 .game.rz p{margin:0;color:var(--ink2);font-size:13px}
 .chip.mv{border-color:var(--gold);color:var(--gold)}
+.game.ch{background:linear-gradient(135deg,#13233A,#17233A);border-color:#2E4468}
+.game.ch h4{margin:4px 0 0;font-family:var(--display);font-size:24px;letter-spacing:.05em;text-transform:uppercase}
+.game.ch p{margin:0;color:var(--ink2);font-size:13px}
 
 /* panels */
 .layer{position:fixed;inset:0;z-index:50;background:rgba(5,9,16,.72);display:flex;align-items:center;justify-content:center;padding:24px}
@@ -98,8 +101,9 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
 .applist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081237"></script>
-<script src="tv/common.js?v=202611081237"></script>
+<script src="tv/tv-nav.js?v=202611081241"></script>
+<script src="tv/boxscore.js?v=202611081241"></script>
+<script src="tv/common.js?v=202611081241"></script>
 </head>
 <body>
 <header class="top">
@@ -158,6 +162,7 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
     <div class="sec">Type</div><div class="seg" id="sf-type"></div>
     <div id="sf-urlbox">
       <label class="f" for="sf-url">Address</label><input class="t" id="sf-url" type="url" placeholder="https://example.com/watch/{away}-{home}">
+      <label class="f" for="sf-replay">Replay address (optional, for finished games)</label><input class="t" id="sf-replay" type="url" placeholder="https://example.com/replay/{date}/{away}-{home}">
       <div class="sec">Popups and redirects</div><div class="seg" id="sf-sandbox"></div>
       <p class="note">Codes filled in per game: <code>{date}</code> <code>{yyyymmdd}</code> <code>{away}</code> <code>{home}</code> <code>{AWAY}</code> <code>{HOME}</code> <code>{awayNick}</code> <code>{homeNick}</code> <code>{awayName}</code> <code>{homeName}</code> <code>{gameId}</code></p>
     </div>
@@ -198,6 +203,8 @@ if (S.filter !== 'all' && !ACTIVE.includes(S.filter)) S.filter = 'all';
 const state = { date: today(), timer: null, updated: null };
 const revealed = new Set(JSON.parse(sessionStorage.getItem('stv.revealed') || '[]'));
 const cache = {}, errs = {};
+let CHANNELS = [];   // 24/7 channels from sources.json, shown every day
+STV.channels().then(l => { CHANNELS = l; renderGames(); });
 
 /* ---------- ESPN ---------- */
 async function getJSON(url) {
@@ -280,6 +287,12 @@ function redzoneCard(ev) {
     <div class="gtop"><span class="tag">NFL</span><span class="st${g.state === 'in' ? ' live' : ''}">${g.state === 'in' ? 'Live' : 'Sunday'}</span></div>
     <h4>RedZone</h4><p>Every touchdown from every game</p></button>`;
 }
+function channelCard(ch) {
+  const key = `${ch.sport}:${ch.id}`;
+  return `<button class="game ch" type="button" data-g="${esc(key)}" style="--c:var(--${ch.sport})">${inMulti(key) ? '<span class="mvbadge">MULTI</span>' : ''}
+    <div class="gtop"><span class="tag">${esc(SPORTS[ch.sport] ? SPORTS[ch.sport].name : ch.sport)}</span><span class="st live">24/7</span></div>
+    <h4>${esc(ch.name)}</h4><p>Live channel</p></button>`;
+}
 function liveCount(s) { return (cache[s + ':' + ymd(state.date)]?.events || []).filter(g => g.state === 'in').length; }
 function renderBar() {
   $('filters').innerHTML = ['all', ...ACTIVE].map(k =>
@@ -300,9 +313,11 @@ function renderGames() {
     const c = cache[s + ':' + key], err = errs[s + ':' + key];
     if (!c && !err) { loading = true; continue; }
     const ev = c ? c.events : [];
-    if (!ev.length && !err) continue;
+    const chans = CHANNELS.filter(x => x.sport === s);
+    if (!ev.length && !err && !chans.length) continue;
     any = true;
     if (show.length > 1) html += `<div class="sport-h" style="--c:var(--${s})">${esc(SPORTS[s].name)}</div>`;
+    html += chans.map(channelCard).join('');
     if (s === 'nfl' && ev.length) html += redzoneCard(ev);
     html += err ? `<div class="empty">Couldn't load ${esc(SPORTS[s].name)} games (${esc(err)}).</div>` : ev.map(gameCard).join('');
   }
@@ -317,12 +332,15 @@ function render() { renderBar(); renderGames(); }
 function findGame(key) {
   const [s, id] = key.split(':');
   if (key === 'nfl:redzone') return redzoneGame();
+  const ch = CHANNELS.find(x => `${x.sport}:${x.id}` === key);
+  if (ch) return { id: ch.id, sport: ch.sport, channel: ch.id, name: ch.name, state: 'in', date: state.date, teams: [] };
   return (cache[s + ':' + ymd(state.date)]?.events || []).find(g => g.id === id);
 }
 
 /* ---------- a game's options ---------- */
 function gameVars(g) {
   const etd = STV.etDay(g.date);
+  if (g.channel) return { sport: g.sport, gameId: g.channel, channel: g.channel, date: etd, yyyymmdd: etd.replace(/-/g, ''), title: g.name, key: `${g.sport}:${g.channel}` };
   if (g.redzone) return {
     sport: 'nfl', gameId: 'redzone', date: etd, yyyymmdd: etd.replace(/-/g, ''), away: 'redzone', home: 'redzone',
     AWAY: 'REDZONE', HOME: 'REDZONE', awayNick: 'redzone', homeNick: 'redzone', awayName: 'redzone', homeName: 'redzone',
@@ -352,7 +370,10 @@ let sheetGame = null;
 async function openGame(key) {
   const g = findGame(key); if (!g) return;
   sheetGame = g;
-  if (g.redzone) {
+  if (g.channel) {
+    $('gs-title').textContent = g.name;
+    $('gs-sub').textContent = '24/7 live channel';
+  } else if (g.redzone) {
     $('gs-title').textContent = 'NFL RedZone';
     $('gs-sub').textContent = 'Every touchdown from every game' + (g.state === 'in' ? ' · Live' : '');
   } else {
@@ -360,20 +381,31 @@ async function openGame(key) {
     $('gs-title').textContent = `${a.short} at ${h.short}`;
     $('gs-sub').textContent = `${SPORTS[g.sport].name} · ${statusText(g)}`;
   }
-  const srcs = await STV.sourcesFor(g.sport);
-  const v = encodeURIComponent(JSON.stringify(gameVars(g)));
-  const what = g.redzone ? 'RedZone' : 'game';
+  const vars = gameVars(g);
+  const srcs = g.channel ? await STV.streamsFor(vars) : await STV.sourcesFor(g.sport);
+  const v = encodeURIComponent(JSON.stringify(vars));
+  const what = g.channel ? g.name : g.redzone ? 'RedZone' : 'game';
+  const real = !g.channel && !g.redzone;   // an actual game, with a preview, box score and highlights
   // the first source is the main Watch button; any others are listed as alternatives
   const players = srcs.filter(s => s.type !== 'app'), apps = srcs.filter(s => s.type === 'app');
-  let html = players.map((s, i) => i === 0
-    ? `<button class="act primary" type="button" data-watch="${esc(s.id)}">▶ Watch ${what}</button>`
-    : `<button class="act" type="button" data-watch="${esc(s.id)}">▶ Watch ${what} <small>${esc(s.name)}</small></button>`).join('');
+  const replays = players.filter(s => s.replay);
+  let html = '';
+  if (real && g.state === 'post') {
+    html += `<button class="act primary" type="button" data-hl="1">▶ Highlights</button>`;
+    html += replays.map(s => `<button class="act" type="button" data-replay="${esc(s.id)}">▶ Watch full replay${replays.length > 1 ? ` <small>${esc(s.name)}</small>` : ''}</button>`).join('');
+  }
+  html += players.map((s, i) => (i === 0 && !(real && g.state === 'post'))
+    ? `<button class="act primary" type="button" data-watch="${esc(s.id)}">▶ Watch ${esc(what)}</button>`
+    : `<button class="act" type="button" data-watch="${esc(s.id)}">▶ Watch ${esc(what)} <small>${esc(s.name)}</small></button>`).join('');
+  if (real && g.state === 'pre') html += `<button class="act" type="button" data-preview="1">Game preview</button>`;
+  if (real && g.state === 'in') html += `<button class="act" type="button" data-hl="1">Highlights so far</button>`;
+  if (real && g.state !== 'pre') html += `<button class="act" type="button" data-box="1">Box score</button>`;
   html += apps.map(s => `<button class="act" type="button" data-watch="${esc(s.id)}">Open ${esc(s.name)}<small>app</small></button>`).join('');
-  if (!srcs.length) html += `<p class="note">No stream sources set up for ${esc(SPORTS[g.sport].name)} yet. Add one in Settings.</p>`;
+  if (!srcs.length) html += `<p class="note">${g.channel ? `Set the address for ${esc(g.name)} in sources.json.` : `No stream sources set up for ${esc(SPORTS[g.sport].name)} yet. Add one in Settings.`}</p>`;
   if (players.length) html += `<button class="act" type="button" data-multi="1">${inMulti(g.sport + ':' + g.id) ? '✓ In multiview · remove' : '＋ Add to multiview'}<small>${multi().length}/${MULTI_MAX}</small></button>`;
   if (multi().length) html += `<button class="act" type="button" data-mvgo="1">▦ Open multiview (${multi().length})</button>`;
-  if (!g.redzone) html += `<button class="act" type="button" data-open="1">Open in the ${esc(SPORTS[g.sport].name)} app</button>`;
-  if (!g.redzone && g.state !== 'pre' && S.spoilers) html += `<button class="act" type="button" data-reveal="1">${revealed.has(g.id) ? 'Hide the score' : 'Show the score'}</button>`;
+  if (real) html += `<button class="act" type="button" data-open="1">Open in the ${esc(SPORTS[g.sport].name)} app</button>`;
+  if (real && g.state !== 'pre' && S.spoilers) html += `<button class="act" type="button" data-reveal="1">${revealed.has(g.id) ? 'Hide the score' : 'Show the score'}</button>`;
   if (!srcs.length) html += `<button class="act" type="button" data-settings="1">Settings</button>`;
   html += `<button class="act" type="button" data-close="1">Close</button>`;
   $('gs-acts').innerHTML = html;
@@ -383,8 +415,16 @@ async function openGame(key) {
 $('gs-acts').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b || !sheetGame) return;
   const g = sheetGame;
+  if (b.dataset.preview) { location.href = `preview.html?g=${$('gs-acts').dataset.v}`; return; }
+  if (b.dataset.hl) { location.href = `highlights.html?g=${$('gs-acts').dataset.v}`; return; }
+  if (b.dataset.box) { hideLayer('gamesheet'); BOX.open(gameVars(g)); return; }
+  if (b.dataset.replay) {
+    const rv = Object.assign(gameVars(g), { replay: true, title: gameVars(g).title + ' · Replay' });
+    location.href = `player.html?g=${encodeURIComponent(JSON.stringify(rv))}&s=${encodeURIComponent(b.dataset.replay)}`;
+    return;
+  }
   if (b.dataset.watch) {
-    const src = (await STV.sourcesFor(g.sport)).find(s => s.id === b.dataset.watch);
+    const src = g.channel ? null : (await STV.sourcesFor(g.sport)).find(s => s.id === b.dataset.watch);
     if (src && src.type === 'app') {
       if (STV.bridge && await STV.bridge.call('launchApp', src.pkg)) { hideLayer('gamesheet'); return; }
       nav() && nav().toast(STV.bridge ? "Couldn't open that app" : 'Apps open on the Fire TV');
@@ -477,7 +517,7 @@ function openForm(i) {
   const l = STV.localSources(), s = i >= 0 ? l[i] : {};
   form = { i, sport: s.sport || 'all', type: s.type || 'embed', sandbox: s.sandbox !== false };
   $('sf-title').textContent = i >= 0 ? 'Edit source' : 'Add a source';
-  $('sf-name').value = s.name || ''; $('sf-url').value = s.url || ''; $('sf-pkg').value = s.pkg || '';
+  $('sf-name').value = s.name || ''; $('sf-url').value = s.url || ''; $('sf-pkg').value = s.pkg || ''; $('sf-replay').value = s.replay || '';
   drawForm(); showLayer('srcform');
 }
 $('srcform').addEventListener('click', e => {
@@ -490,7 +530,8 @@ $('srcform').addEventListener('click', e => {
 $('sf-cancel').onclick = () => hideLayer('srcform');
 $('sf-save').onclick = () => {
   const s = { id: 'l' + Date.now().toString(36), name: $('sf-name').value.trim(), sport: form.sport, type: form.type,
-              url: $('sf-url').value.trim(), pkg: $('sf-pkg').value.trim(), sandbox: form.sandbox };
+              url: $('sf-url').value.trim(), pkg: $('sf-pkg').value.trim(), sandbox: form.sandbox,
+              replay: $('sf-replay').value.trim() || undefined };
   if (!s.name) { nav() && nav().toast('Give the source a name'); return; }
   if (s.type === 'app' ? !s.pkg : !/^https?:\/\//i.test(s.url)) { nav() && nav().toast(s.type === 'app' ? 'Pick an app' : 'Enter an address starting with https://'); return; }
   const l = STV.localSources();

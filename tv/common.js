@@ -49,19 +49,47 @@ window.STV = (function () {
      it up) and the ones added on the TV in Settings (kept on that TV only). */
   function localSources() { return store.get('stv.sources', []); }
   function saveLocalSources(list) { store.set('stv.sources', list); }
-  var repoCache = null;
+  var repoCache = null, repoChannels = [];
   function repoSources() {
     if (repoCache) return Promise.resolve(repoCache);
     return fetch(REPO_SOURCES, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : { sources: [] }; })
       .then(function (j) {
         repoCache = (j && j.sources || []).map(function (s, i) { var o = {}; for (var k in s) o[k] = s[k]; o.id = 'repo' + i; o.repo = true; return o; });
+        repoChannels = (j && j.channels || []).slice();
         return repoCache;
       })
       .catch(function () { repoCache = []; return repoCache; });
   }
+
+  /* ---------- 24/7 channels (NFL Network…), separate from game sources ----------
+     { id, name, sport, url } in sources.json "channels". An address starting with / is on the
+     same site as the first game source for that sport. */
+  function channels(sport) {
+    return repoSources().then(function (srcs) {
+      return repoChannels.filter(function (c) { return c && c.name && c.url && (!sport || c.sport === sport); }).map(function (c) {
+        var url = c.url;
+        if (url.charAt(0) === '/') {
+          var base = srcs.concat(localSources()).filter(function (s) { return usable(s) && s.type !== 'app' && (!s.sport || s.sport === 'all' || s.sport === c.sport); })[0];
+          if (!base) return null;
+          try { url = new URL(url, base.url.replace(/\{\w+\}/g, 'x')).href; } catch (e) { return null; }
+        }
+        if (/YOUR-SITE/i.test(url)) return null;
+        return { id: 'ch-' + (c.id || slug(c.name)), name: c.name, sport: c.sport, type: 'embed', url: url, sandbox: c.sandbox };
+      }).filter(Boolean);
+    });
+  }
   // an address still holding the YOUR-SITE placeholder isn't set up yet, so it stays hidden
   function usable(s) { return s && s.name && (s.type === 'app' ? !!s.pkg : !!s.url && !/YOUR-SITE/i.test(s.url)); }
+  // sources for a game; a channel (game.channel) plays its own address instead
+  function streamsFor(g) {
+    if (g && g.channel) return channels(g.sport).then(function (l) { return l.filter(function (c) { return c.id === g.channel; }); });
+    return sourcesFor(g && g.sport).then(function (l) {
+      l = l.filter(function (s) { return s.type !== 'app'; });
+      if (g && g.replay) l = l.filter(function (s) { return s.replay; }).map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; o.url = s.replay; return o; });
+      return l;
+    });
+  }
   function sourcesFor(sport) {
     return repoSources().then(function (repo) {
       return repo.concat(localSources()).filter(function (s) {
@@ -86,7 +114,7 @@ window.STV = (function () {
     });
   }
 
-  var slug = function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); };
+  function slug(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
   var etDay = function (d) {
     try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d); }
     catch (e) { return d.toISOString().slice(0, 10); }
@@ -120,6 +148,6 @@ window.STV = (function () {
   return {
     store: store, settings: settings, saveSettings: saveSettings,
     localSources: localSources, saveLocalSources: saveLocalSources, repoSources: repoSources,
-    sourcesFor: sourcesFor, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon
+    sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon
   };
 })();

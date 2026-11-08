@@ -9,6 +9,8 @@ Your NBA and NFL apps on a Fire TV, run from the remote. College football and ML
 | `index.html` | The TV home screen: the day's games (scores hidden until you choose), RedZone, multiview and Settings. |
 | `player.html` | Full screen player for a game, using the stream sources you set up. |
 | `multi.html` | Multiview: up to four games at once. |
+| `preview.html` | Game preview for games that haven't started. |
+| `highlights.html` | ESPN highlight clips for live and finished games. |
 | `tv/tv-nav.js` | The remote layer. Arrow keys move a highlight to the nearest item, Select clicks it, Back closes the top panel. The Fire TV app adds it to every page, so the NBA and NFL apps work from the remote with no changes to them. |
 | `tv/common.js` | Settings, stream sources and filling in addresses, shared by the home screen and player. |
 | `sources.json` | Stream sources every TV picks up. Starts empty. |
@@ -77,6 +79,17 @@ Embedded players can't open popups or send the app to another site: the frame ru
 ## Box score
 
 While a game plays, press Down (or the stats button in the controls) and a box score slides in on the right, like Prime Video's: the score by quarter, team stats, and player stats with a button for each team. Up and Down scroll it, Left and Right switch teams, it updates every 15 seconds, and Back closes it. On RedZone it lists every NFL game of the day with live down and distance. In multiview, the stats button shows the selected game's box score. Data comes from ESPN's game summary (`tv/boxscore.js`).
+
+## Previews, highlights, replays and channels
+
+What a game's menu offers depends on where the game is:
+- **Not started:** Watch game, and **Game preview** (records, time, venue and TV, the line and ESPN's win probability, season leaders, last five games, injuries, season series).
+- **Live:** Watch game, **Highlights so far**, **Box score**.
+- **Finished:** **Highlights** (ESPN's clips; Play all runs them in game order; Up/Down change clip), **Watch full replay** when a source has a replay address, **Box score**.
+
+A game source can have a `"replay"` address with the same codes as `"url"`, for example `"replay": "https://example.com/replay/{sport}/{homeNick}"`.
+
+**Channels** are 24/7 streams, kept apart from game sources in `sources.json` under `"channels"`: `{ "id": "nfl-network", "name": "NFL Network", "sport": "nfl", "url": "/embed/nfl-network" }`. An address starting with `/` uses the same site as that sport's first game source; give a full address if it lives on another site. Channels show at the top of their sport every day and can go in multiview.
 
 ## Multiview and RedZone
 
