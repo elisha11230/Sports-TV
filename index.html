@@ -101,9 +101,9 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
 .applist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081241"></script>
-<script src="tv/boxscore.js?v=202611081241"></script>
-<script src="tv/common.js?v=202611081241"></script>
+<script src="tv/tv-nav.js?v=202611081245"></script>
+<script src="tv/boxscore.js?v=202611081245"></script>
+<script src="tv/common.js?v=202611081245"></script>
 </head>
 <body>
 <header class="top">
@@ -162,7 +162,8 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
     <div class="sec">Type</div><div class="seg" id="sf-type"></div>
     <div id="sf-urlbox">
       <label class="f" for="sf-url">Address</label><input class="t" id="sf-url" type="url" placeholder="https://example.com/watch/{away}-{home}">
-      <label class="f" for="sf-replay">Replay address (optional, for finished games)</label><input class="t" id="sf-replay" type="url" placeholder="https://example.com/replay/{date}/{away}-{home}">
+      <label class="f" for="sf-replay">Full game replay address (optional, for finished games)</label><input class="t" id="sf-replay" type="url" placeholder="https://example.com/replay/{date}/{away}-{home}">
+      <label class="f" for="sf-cond">Condensed game address (optional)</label><input class="t" id="sf-cond" type="url" placeholder="https://example.com/condensed/{date}/{away}-{home}">
       <div class="sec">Popups and redirects</div><div class="seg" id="sf-sandbox"></div>
       <p class="note">Codes filled in per game: <code>{date}</code> <code>{yyyymmdd}</code> <code>{away}</code> <code>{home}</code> <code>{AWAY}</code> <code>{HOME}</code> <code>{awayNick}</code> <code>{homeNick}</code> <code>{awayName}</code> <code>{homeName}</code> <code>{gameId}</code></p>
     </div>
@@ -388,11 +389,12 @@ async function openGame(key) {
   const real = !g.channel && !g.redzone;   // an actual game, with a preview, box score and highlights
   // the first source is the main Watch button; any others are listed as alternatives
   const players = srcs.filter(s => s.type !== 'app'), apps = srcs.filter(s => s.type === 'app');
-  const replays = players.filter(s => s.replay);
+  const replays = players.filter(s => s.replay), condensed = players.filter(s => s.condensed);
   let html = '';
   if (real && g.state === 'post') {
     html += `<button class="act primary" type="button" data-hl="1">▶ Highlights</button>`;
-    html += replays.map(s => `<button class="act" type="button" data-replay="${esc(s.id)}">▶ Watch full replay${replays.length > 1 ? ` <small>${esc(s.name)}</small>` : ''}</button>`).join('');
+    html += condensed.map(s => `<button class="act" type="button" data-replay="${esc(s.id)}" data-kind="condensed">▶ Condensed game${condensed.length > 1 ? ` <small>${esc(s.name)}</small>` : ''}</button>`).join('');
+    html += replays.map(s => `<button class="act" type="button" data-replay="${esc(s.id)}" data-kind="full">▶ Full game replay${replays.length > 1 ? ` <small>${esc(s.name)}</small>` : ''}</button>`).join('');
   }
   html += players.map((s, i) => (i === 0 && !(real && g.state === 'post'))
     ? `<button class="act primary" type="button" data-watch="${esc(s.id)}">▶ Watch ${esc(what)}</button>`
@@ -419,7 +421,8 @@ $('gs-acts').addEventListener('click', async e => {
   if (b.dataset.hl) { location.href = `highlights.html?g=${$('gs-acts').dataset.v}`; return; }
   if (b.dataset.box) { hideLayer('gamesheet'); BOX.open(gameVars(g)); return; }
   if (b.dataset.replay) {
-    const rv = Object.assign(gameVars(g), { replay: true, title: gameVars(g).title + ' · Replay' });
+    const kind = b.dataset.kind === 'condensed' ? 'condensed' : 'full';
+    const rv = Object.assign(gameVars(g), { replay: kind, title: gameVars(g).title + (kind === 'condensed' ? ' · Condensed' : ' · Replay') });
     location.href = `player.html?g=${encodeURIComponent(JSON.stringify(rv))}&s=${encodeURIComponent(b.dataset.replay)}`;
     return;
   }
@@ -517,7 +520,7 @@ function openForm(i) {
   const l = STV.localSources(), s = i >= 0 ? l[i] : {};
   form = { i, sport: s.sport || 'all', type: s.type || 'embed', sandbox: s.sandbox !== false };
   $('sf-title').textContent = i >= 0 ? 'Edit source' : 'Add a source';
-  $('sf-name').value = s.name || ''; $('sf-url').value = s.url || ''; $('sf-pkg').value = s.pkg || ''; $('sf-replay').value = s.replay || '';
+  $('sf-name').value = s.name || ''; $('sf-url').value = s.url || ''; $('sf-pkg').value = s.pkg || ''; $('sf-replay').value = s.replay || ''; $('sf-cond').value = s.condensed || '';
   drawForm(); showLayer('srcform');
 }
 $('srcform').addEventListener('click', e => {
@@ -531,7 +534,7 @@ $('sf-cancel').onclick = () => hideLayer('srcform');
 $('sf-save').onclick = () => {
   const s = { id: 'l' + Date.now().toString(36), name: $('sf-name').value.trim(), sport: form.sport, type: form.type,
               url: $('sf-url').value.trim(), pkg: $('sf-pkg').value.trim(), sandbox: form.sandbox,
-              replay: $('sf-replay').value.trim() || undefined };
+              replay: $('sf-replay').value.trim() || undefined, condensed: $('sf-cond').value.trim() || undefined };
   if (!s.name) { nav() && nav().toast('Give the source a name'); return; }
   if (s.type === 'app' ? !s.pkg : !/^https?:\/\//i.test(s.url)) { nav() && nav().toast(s.type === 'app' ? 'Pick an app' : 'Enter an address starting with https://'); return; }
   const l = STV.localSources();

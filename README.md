@@ -85,9 +85,9 @@ While a game plays, press Down (or the stats button in the controls) and a box s
 What a game's menu offers depends on where the game is:
 - **Not started:** Watch game, and **Game preview** (records, time, venue and TV, the line and ESPN's win probability, season leaders, last five games, injuries, season series).
 - **Live:** Watch game, **Highlights so far**, **Box score**.
-- **Finished:** **Highlights** (ESPN's clips; Play all runs them in game order; Up/Down change clip), **Watch full replay** when a source has a replay address, **Box score**.
+- **Finished:** **Highlights** (ESPN's clips; Play all runs them in game order; Up/Down change clip), **Condensed game** and **Full game replay** when a source has those addresses, **Box score**.
 
-A game source can have a `"replay"` address with the same codes as `"url"`, for example `"replay": "https://example.com/replay/{sport}/{homeNick}"`.
+A game source can have `"replay"` (full game) and `"condensed"` addresses with the same codes as `"url"`, for example `"replay": "https://example.com/replay/{sport}/{homeNick}"`.
 
 **Channels** are 24/7 streams, kept apart from game sources in `sources.json` under `"channels"`: `{ "id": "nfl-network", "name": "NFL Network", "sport": "nfl", "url": "/embed/nfl-network" }`. An address starting with `/` uses the same site as that sport's first game source; give a full address if it lives on another site. Channels show at the top of their sport every day and can go in multiview.
 

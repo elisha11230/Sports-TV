@@ -86,7 +86,9 @@ window.STV = (function () {
     if (g && g.channel) return channels(g.sport).then(function (l) { return l.filter(function (c) { return c.id === g.channel; }); });
     return sourcesFor(g && g.sport).then(function (l) {
       l = l.filter(function (s) { return s.type !== 'app'; });
-      if (g && g.replay) l = l.filter(function (s) { return s.replay; }).map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; o.url = s.replay; return o; });
+      // replays: "replay" for the full game, "condensed" for the condensed game
+      var field = g && g.replay ? (g.replay === 'condensed' ? 'condensed' : 'replay') : null;
+      if (field) l = l.filter(function (s) { return s[field]; }).map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; o.url = s[field]; return o; });
       return l;
     });
   }
