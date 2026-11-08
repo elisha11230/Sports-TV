@@ -35,9 +35,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #msg[hidden]{display:none}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081245"></script>
-<script src="tv/common.js?v=202611081245"></script>
-<script src="tv/boxscore.js?v=202611081245"></script>
+<script src="tv/tv-nav.js?v=202611081253"></script>
+<script src="tv/common.js?v=202611081253"></script>
+<script src="tv/boxscore.js?v=202611081253"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -323,7 +323,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && barOpen())
 /* ---------- start ---------- */
 (async function () {
   if (bridge) { bridge.call('keepAwake', true); KEY = await bridge.call('frameKey'); }
-  sources = await STV.streamsFor(G);
+  // a YouTube video (the league's full game highlights or replay) plays in YouTube's embed player
+  const yt = q.get('yt');
+  sources = yt ? [{ id: 'yt', name: 'YouTube', type: 'embed', sandbox: false,
+    url: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(yt)}?autoplay=1&rel=0&playsinline=1&modestbranding=1` }]
+    : await STV.streamsFor(G);
   if (!sources.length) { message('No stream sources are set up for this sport.<br>Add one in Settings on the home screen.'); drawBar(); showBar(0); return; }
   const want = sources.findIndex(s => s.id === q.get('s'));
   await play(want >= 0 ? want : 0);

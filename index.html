@@ -101,9 +101,9 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
 .applist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081245"></script>
-<script src="tv/boxscore.js?v=202611081245"></script>
-<script src="tv/common.js?v=202611081245"></script>
+<script src="tv/tv-nav.js?v=202611081253"></script>
+<script src="tv/boxscore.js?v=202611081253"></script>
+<script src="tv/common.js?v=202611081253"></script>
 </head>
 <body>
 <header class="top">
@@ -367,6 +367,26 @@ function toggleMulti(g) {
   l.push(v); saveMulti(l); return true;
 }
 
+/* ---------- YouTube: the league's own full game highlights and full replays ----------
+   Found by the Val Town relay (elishaben/nba-youtube /game), which only takes the NBA's, the NFL's or the
+   teams' own uploads. */
+const YT_RELAY = 'https://elishaben--bde1ae78bf9f11f1b39a1607ee4eb77e.web.val.run';
+const ytCache = {};
+function youtubeFor(g) {
+  const k = `${g.sport}:${g.id}`;
+  if (ytCache[k] && (ytCache[k].highlights || Date.now() - ytCache[k].at < 600000)) return Promise.resolve(ytCache[k]);
+  const [a, h] = g.teams, v = gameVars(g);
+  const q = new URLSearchParams({ sport: g.sport, date: v.date, away: a.nick, home: h.nick, awayFull: a.full, homeFull: h.full });
+  const ctl = new AbortController(); setTimeout(() => ctl.abort(), 15000);
+  return fetch(`${YT_RELAY}/game?${q}`, { signal: ctl.signal }).then(r => r.json())
+    .then(j => { j.at = Date.now(); ytCache[k] = j; return j; })
+    .catch(() => ({ highlights: null, full: null }));
+}
+function watchYouTube(g, clip, label) {
+  const v = Object.assign(gameVars(g), { title: `${gameVars(g).title} · ${label}` });
+  location.href = `player.html?g=${encodeURIComponent(JSON.stringify(v))}&yt=${encodeURIComponent(clip.id)}`;
+}
+
 let sheetGame = null;
 async function openGame(key) {
   const g = findGame(key); if (!g) return;
@@ -391,8 +411,9 @@ async function openGame(key) {
   const players = srcs.filter(s => s.type !== 'app'), apps = srcs.filter(s => s.type === 'app');
   const replays = players.filter(s => s.replay), condensed = players.filter(s => s.condensed);
   let html = '';
+  if (real && (SPORTS[g.sport] && /^(nba|nfl)$/.test(g.sport)) && g.state === 'post') html += `<div id="gs-yt"><p class="note">Looking for YouTube replays…</p></div>`;
   if (real && g.state === 'post') {
-    html += `<button class="act primary" type="button" data-hl="1">▶ Highlights</button>`;
+    html += `<button class="act" type="button" data-hl="1">ESPN highlight clips</button>`;
     html += condensed.map(s => `<button class="act" type="button" data-replay="${esc(s.id)}" data-kind="condensed">▶ Condensed game${condensed.length > 1 ? ` <small>${esc(s.name)}</small>` : ''}</button>`).join('');
     html += replays.map(s => `<button class="act" type="button" data-replay="${esc(s.id)}" data-kind="full">▶ Full game replay${replays.length > 1 ? ` <small>${esc(s.name)}</small>` : ''}</button>`).join('');
   }
@@ -413,10 +434,28 @@ async function openGame(key) {
   $('gs-acts').innerHTML = html;
   $('gs-acts').dataset.v = v;
   showLayer('gamesheet');
+  if ($('gs-yt')) youtubeFor(g).then(r => {
+    const box = $('gs-yt'); if (!box || sheetGame !== g) return;
+    const f0 = nav() && nav().focused();
+    const hadFocus = box.contains(document.activeElement) || !f0 || f0 === box.parentElement.querySelector('button');
+    let h = '';
+    if (r.highlights) h += `<button class="act primary" type="button" data-yt="highlights">▶ Full game highlights<small>YouTube</small></button>`;
+    if (r.full) h += `<button class="act primary" type="button" data-yt="full">▶ Full game replay<small>YouTube</small></button>`;
+    box.innerHTML = h || '<p class="note">No YouTube replay yet. The leagues post them an hour or so after the game.</p>';
+    box.style.display = 'flex'; box.style.flexDirection = 'column'; box.style.gap = '8px';
+    // land on the new button when the menu just opened
+    const first = box.querySelector('button');
+    if (first && nav() && hadFocus) nav().focus(first, { noScroll: true });
+  });
 }
 $('gs-acts').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b || !sheetGame) return;
   const g = sheetGame;
+  if (b.dataset.yt) {
+    const r = await youtubeFor(g), clip = r[b.dataset.yt];
+    if (clip) watchYouTube(g, clip, b.dataset.yt === 'full' ? 'Full game' : 'Highlights');
+    return;
+  }
   if (b.dataset.preview) { location.href = `preview.html?g=${$('gs-acts').dataset.v}`; return; }
   if (b.dataset.hl) { location.href = `highlights.html?g=${$('gs-acts').dataset.v}`; return; }
   if (b.dataset.box) { hideLayer('gamesheet'); BOX.open(gameVars(g)); return; }

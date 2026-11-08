@@ -85,7 +85,7 @@ While a game plays, press Down (or the stats button in the controls) and a box s
 What a game's menu offers depends on where the game is:
 - **Not started:** Watch game, and **Game preview** (records, time, venue and TV, the line and ESPN's win probability, season leaders, last five games, injuries, season series).
 - **Live:** Watch game, **Highlights so far**, **Box score**.
-- **Finished:** **Highlights** (ESPN's clips; Play all runs them in game order; Up/Down change clip), **Condensed game** and **Full game replay** when a source has those addresses, **Box score**.
+- **Finished:** **Full game highlights** and, when the league posts one, **Full game replay** from YouTube (only the NBA's, the NFL's or the teams' own channels, found by the Val Town relay `elishaben/nba-youtube`), **ESPN highlight clips** (Play all runs them in game order; Up/Down change clip), **Condensed game** and **Full game replay** when a source has those addresses, **Box score**.
 
 A game source can have `"replay"` (full game) and `"condensed"` addresses with the same codes as `"url"`, for example `"replay": "https://example.com/replay/{sport}/{homeNick}"`.
 

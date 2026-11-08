@@ -236,7 +236,13 @@
     var cur = focused && focused.isConnected && root.contains(focused) && shown(focused) ? focused : null;
     if (!cur) { focusFirst(root, list, dir === 'up'); return; }
     var r = rectOf(cur);
-    if (!onScreen(r)) { focusFirst(root, list, dir === 'up'); return; }
+    if (!onScreen(r)) {
+      // the highlighted item has scrolled away: use something on screen, or keep scrolling the page
+      var vis = list.filter(function (el) { return onScreen(rectOf(el)); });
+      if (vis.length) { focusFirst(root, vis, dir === 'up'); return; }
+      scrollBy(cur, dir);
+      return;
+    }
     var best = null, bs = null;
     for (var i = 0; i < list.length; i++) {
       var el = list[i];
@@ -248,19 +254,28 @@
     var far = bs && bs.p > (vertical ? innerHeight * 0.9 : innerWidth * 0.9);
     if (!best || far) {
       // nothing close by in that direction: scroll so text without buttons can still be read
-      var sc2 = scrollerFor(cur, vertical), amt = (vertical ? innerHeight : innerWidth) * 0.6;
-      var before = vertical ? sc2.scrollTop : sc2.scrollLeft;
-      var delta = (dir === 'down' || dir === 'right') ? amt : -amt;
-      if (vertical) sc2.scrollTop += delta; else sc2.scrollLeft += delta;
-      var after = vertical ? sc2.scrollTop : sc2.scrollLeft;
-      if (after === before && best) { setFocus(best); return; }
-      setTimeout(function () {
-        if (!onScreen(rectOf(cur))) focusFirst(root, candidates(root), dir === 'up');
-        drawRing();
-      }, 30);
+      if (!scrollBy(cur, dir) && best) setFocus(best);
       return;
     }
     setFocus(best);
+  }
+  // scrolls the page (or the panel holding el) about half a screen; false when it can't go further
+  function scrollBy(el, dir) {
+    var vertical = dir === 'up' || dir === 'down';
+    var sc = scrollerFor(el, vertical), amt = (vertical ? innerHeight : innerWidth) * 0.5;
+    var before = vertical ? sc.scrollTop : sc.scrollLeft;
+    var delta = (dir === 'down' || dir === 'right') ? amt : -amt;
+    if (vertical) sc.scrollTop += delta; else sc.scrollLeft += delta;
+    var moved = (vertical ? sc.scrollTop : sc.scrollLeft) !== before;
+    if (moved) setTimeout(function () {
+      // if something you can select scrolled into view, the highlight goes there; otherwise it waits
+      if (!onScreen(rectOf(el))) {
+        var root = topLayer() || D.body, vis = candidates(root).filter(function (x) { return onScreen(rectOf(x)); });
+        if (vis.length) focusFirst(root, vis, dir === 'up');
+      }
+      drawRing();
+    }, 30);
+    return moved;
   }
 
   /* ---------------- Select ---------------- */
