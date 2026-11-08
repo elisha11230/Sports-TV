@@ -16,6 +16,8 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.speech.RecognizerIntent;
+import java.util.ArrayList;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
@@ -198,6 +200,10 @@ public class MainActivity extends Activity {
             case KeyEvent.KEYCODE_MENU:
                 if (down && e.getRepeatCount() == 0) web.evaluateJavascript("window.__tvMenu&&window.__tvMenu()", null);
                 return true;
+            // a remote or keyboard Search key opens search on the home screen
+            case KeyEvent.KEYCODE_SEARCH:
+                if (down && e.getRepeatCount() == 0) web.evaluateJavascript("window.__tvSearch?window.__tvSearch():(location.href='index.html#search')", null);
+                return true;
             case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
             case KeyEvent.KEYCODE_MEDIA_PLAY:
             case KeyEvent.KEYCODE_MEDIA_PAUSE:
@@ -235,6 +241,37 @@ public class MainActivity extends Activity {
             lastBackAtHome = now;
             Toast.makeText(this, "Press Back again to exit", Toast.LENGTH_SHORT).show();
         });
+    }
+
+    /* ---------------- talking to search ----------------
+       Uses the device's speech service (phones with Google, and Fire TVs that have one). The words
+       go back to the page through window.__tvHeard. Returns false when there's no speech service. */
+    static final int REQ_SPEAK = 7101;
+
+    boolean listen(String prompt) {
+        Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        i.putExtra(RecognizerIntent.EXTRA_PROMPT, prompt);
+        i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
+        if (i.resolveActivity(getPackageManager()) == null) return false;
+        runOnUiThread(() -> {
+            try { startActivityForResult(i, REQ_SPEAK); }
+            catch (Exception e) { heard(null); }
+        });
+        return true;
+    }
+
+    void heard(String text) {
+        String js = "window.__tvHeard&&window.__tvHeard(" + (text == null ? "null" : JSONObject.quote(text)) + ")";
+        runOnUiThread(() -> web.evaluateJavascript(js, null));
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req != REQ_SPEAK) return;
+        ArrayList<String> got = (res == RESULT_OK && data != null) ? data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
+        heard(got != null && !got.isEmpty() ? got.get(0) : null);
     }
 
     /* ---------------- what the pages can ask for ---------------- */
@@ -285,6 +322,7 @@ public class MainActivity extends Activity {
                         if (imm != null) imm.showSoftInput(web, InputMethodManager.SHOW_IMPLICIT);
                     });
                     r = true; break;
+                case "listen": r = listen(a.optString(0, "Say a team or a game")); break;
                 case "tap": r = tap((float) a.optDouble(0, 0.5), (float) a.optDouble(1, 0.5)); break;
                 case "exit": runOnUiThread(this::finish); r = true; break;
                 default: r = JSONObject.NULL;

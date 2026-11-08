@@ -50,9 +50,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081506"></script>
-<script src="tv/common.js?v=202611081506"></script>
-<script src="tv/boxscore.js?v=202611081506"></script>
+<script src="tv/tv-nav.js?v=202611081523"></script>
+<script src="tv/common.js?v=202611081523"></script>
+<script src="tv/boxscore.js?v=202611081523"></script>
+<script src="tv/alerts.js?v=202611081523"></script>
 </head>
 <body>
 <div id="stage"></div>
@@ -359,6 +360,23 @@ if (STV.phone && STV.bridge) {
   STV.bridge.call('orientation', 'landscape');
   addEventListener('pagehide', () => STV.bridge.call('orientation', 'auto'));
 }
+
+/* ---------- alerts: another game gets close, goes to overtime, or reaches the red zone ----------
+   Acting on one opens multiview with this game and that one, with the sound on the new game. */
+ALERTS.start({
+  watching: () => [G.key],
+  actLabel: () => 'Watch in multiview',
+  act: v => {
+    let l = [];
+    try { l = JSON.parse(sessionStorage.getItem('stv.multi') || '[]'); } catch (e) {}
+    const live = G.key && !G.replay && !q.get('yt') ? Object.assign({}, G) : null;
+    if (live && !l.some(x => x.key === live.key)) l.unshift(live);
+    if (!l.some(x => x.key === v.key)) { if (l.length >= 4) l.splice(live ? 1 : 0, 1); l.push(v); }
+    sessionStorage.setItem('stv.multi', JSON.stringify(l.slice(0, 4)));
+    sessionStorage.setItem('stv.mvSound', v.key);
+    location.href = 'multi.html';
+  }
+});
 </script>
 </body>
 </html>

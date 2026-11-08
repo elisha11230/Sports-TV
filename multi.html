@@ -90,9 +90,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081506"></script>
-<script src="tv/common.js?v=202611081506"></script>
-<script src="tv/boxscore.js?v=202611081506"></script>
+<script src="tv/tv-nav.js?v=202611081523"></script>
+<script src="tv/common.js?v=202611081523"></script>
+<script src="tv/boxscore.js?v=202611081523"></script>
+<script src="tv/alerts.js?v=202611081523"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -451,15 +452,7 @@ const pickerOpen = () => !$('pick').hidden;
 const pad2 = n => String(n).padStart(2, '0');
 function todayKey() { const d = new Date(); return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`; }
 // the same game info the home screen hands the player
-function varsFor(ev, sport) {
-  const c = ev.competitions[0], cs = c.competitors.slice().sort((a, b) => (a.homeAway === 'home') - (b.homeAway === 'home'));
-  const [a, h] = cs.map(x => x.team || {}), etd = STV.etDay(new Date(ev.date));
-  return { sport, gameId: ev.id, date: etd, yyyymmdd: etd.replace(/-/g, ''),
-    away: (a.abbreviation || '').toLowerCase(), home: (h.abbreviation || '').toLowerCase(), AWAY: a.abbreviation, HOME: h.abbreviation,
-    awayNick: STV.slug(a.name || a.shortDisplayName), homeNick: STV.slug(h.name || h.shortDisplayName),
-    awayName: STV.slug(a.displayName), homeName: STV.slug(h.displayName),
-    title: `${a.abbreviation} at ${h.abbreviation}`, key: `${sport}:${ev.id}` };
-}
+function varsFor(ev, sport) { return STV.vars(ev, sport); }
 async function loadPickItems() {
   const day = todayKey(), items = [];
   const boards = await Promise.all(Object.keys(PATHS).map(s =>
@@ -514,10 +507,17 @@ $('pick').addEventListener('keydown', e => { if (e.key === 'Escape') { e.prevent
 $('pkl').addEventListener('click', async e => {
   const b = e.target.closest('[data-pk]'); if (!b) return;
   const it = pickItems[+b.dataset.pk];
-  const t = { v: it.v, si: 0, st: null, srcs: await STV.streamsFor(it.v), qManual: false, qWant: null };
-  if (pickFor >= 0 && tiles[pickFor]) {
-    // switch: the tile keeps its spot, its sound and its size
-    const i = pickFor;
+  await placeGame(it.v, pickFor);
+  $('pick').hidden = true;
+  nav() && nav().toast(pickFor >= 0 ? `Switched to ${it.label}` : `Added ${it.label}`, 2200);
+});
+// puts a game in a tile (at = a tile to switch out) or in a new one (at = -1); the sound follows it
+async function placeGame(v, at) {
+  const t = { v, si: 0, st: null, srcs: await STV.streamsFor(v), qManual: false, qWant: null };
+  if (at >= 0 && tiles[at]) {
+    // switch: the tile keeps its spot and its size
+    const i = at;
+    sel = i;
     tiles[i] = t;
     tileEl(i).innerHTML = tileInner(t);
     hookFrame(i);
@@ -531,10 +531,22 @@ $('pkl').addEventListener('click', async e => {
     $('msg').hidden = true;
   }
   saveMulti(tiles.map(x => x.v));
-  $('pick').hidden = true;
   paint();
   setAudio(sel);
-  nav() && nav().toast(pickFor >= 0 ? `Switched to ${it.label}` : `Added ${it.label}`, 2200);
+}
+
+/* ---------- alerts: another game gets close, goes to overtime, or reaches the red zone ---------- */
+// with 4 games up, the alert's game replaces the selected one, or the first one without the sound
+const alertSpot = () => tiles.length < 4 ? -1 : (sel !== audio ? sel : tiles.findIndex((x, i) => i !== audio));
+ALERTS.start({
+  watching: () => tiles.map(t => t.v.key),
+  actLabel: () => { const i = alertSpot(); return i < 0 ? 'Add to multiview' : `Swap for ${tiles[i].v.title}`; },
+  act: async v => {
+    if (solo >= 0) exitSolo();
+    const i = alertSpot();
+    await placeGame(v, i);
+    nav() && nav().toast(i < 0 ? `Added ${v.title}` : `Switched to ${v.title}`, 2200);
+  }
 });
 
 /* ---------- start ---------- */
@@ -547,6 +559,10 @@ $('pkl').addEventListener('click', async e => {
   }
   tiles = await Promise.all(list.map(async v => ({ v, si: 0, st: null, srcs: await STV.streamsFor(v) })));
   build();
+  // opened from an alert: the sound goes to that game
+  const want = sessionStorage.getItem('stv.mvSound'); sessionStorage.removeItem('stv.mvSound');
+  const wi = want ? tiles.findIndex(t => t.v.key === want) : -1;
+  if (wi > 0) { sel = wi; setTimeout(() => setAudio(wi), 1500); }
   showBar(6000);
   nav() && nav().toast('Arrows move to a game and its sound · Menu for options', 4000);
 })();

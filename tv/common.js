@@ -18,7 +18,7 @@ window.STV = (function () {
     set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
 
-  var DEFAULTS = { spoilers: true, textZoom: 100, filter: 'all' };
+  var DEFAULTS = { spoilers: true, textZoom: 100, filter: 'all', alerts: { close: true, ot: true, rz: false } };
   function settings() { var s = store.get('stv.settings', {}); var o = {}; for (var k in DEFAULTS) o[k] = DEFAULTS[k]; for (var j in s) o[j] = s[j]; return o; }
   function saveSettings(s) { store.set('stv.settings', s); applyZoom(s.textZoom); }
 
@@ -154,6 +154,17 @@ window.STV = (function () {
     add: '<path d="M12 5v14M5 12h14"/>',
     swap: '<path d="M7 7h12l-3.5-3.5M17 17H5l3.5 3.5"/>'
   };
+  /* the game info the player and multiview use, from an ESPN scoreboard event */
+  function vars(ev, sport) {
+    var c = ev.competitions[0], cs = c.competitors.slice().sort(function (x, y) { return (x.homeAway === 'home') - (y.homeAway === 'home'); });
+    var a = cs[0].team || {}, h = cs[1].team || {}, etd = etDay(new Date(ev.date));
+    return { sport: sport, gameId: ev.id, date: etd, yyyymmdd: etd.replace(/-/g, ''),
+      away: (a.abbreviation || '').toLowerCase(), home: (h.abbreviation || '').toLowerCase(), AWAY: a.abbreviation, HOME: h.abbreviation,
+      awayNick: slug(a.name || a.shortDisplayName), homeNick: slug(h.name || h.shortDisplayName),
+      awayName: slug(a.displayName), homeName: slug(h.displayName),
+      title: a.abbreviation + ' at ' + h.abbreviation, key: sport + ':' + ev.id };
+  }
+
   /* what "Back to the start" can reach on a live stream, and why not when it can't */
   function rewindNote(st) {
     var d = (st && st.dvr) || {}, from = st && st.from || 0;
@@ -185,6 +196,6 @@ window.STV = (function () {
   return {
     store: store, settings: settings, saveSettings: saveSettings,
     localSources: localSources, saveLocalSources: saveLocalSources, repoSources: repoSources,
-    device: DEVICE, phone: DEVICE === 'phone', sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon, rewindNote: rewindNote
+    device: DEVICE, phone: DEVICE === 'phone', sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon, rewindNote: rewindNote, vars: vars
   };
 })();

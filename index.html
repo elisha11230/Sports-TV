@@ -96,6 +96,13 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02e
 label.f{display:block;margin:10px 0 6px;color:var(--ink2);font-size:14px}
 input.t{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:#0C1426;color:var(--ink);font:500 16px var(--body)}
 input.t:focus{border-color:var(--gold)}
+.srow{display:flex;gap:10px;align-items:center}
+.srow input.t{flex:1;font-size:20px;padding:13px 16px}
+.mic{flex:none;padding:12px 18px;font-size:17px}
+.mic.on{background:#5A1F1F;border-color:#E23B3B}
+#sres{margin-top:14px}
+#sres .act b{font-weight:700}
+#sres .act .live{color:#FF6B6B;font-weight:700}
 code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#CFE0FF}
 .row2{display:flex;gap:10px;margin-top:16px}
 .applist{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
@@ -129,9 +136,9 @@ html.dev-phone .sheet{padding:16px}
 
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081506"></script>
-<script src="tv/boxscore.js?v=202611081506"></script>
-<script src="tv/common.js?v=202611081506"></script>
+<script src="tv/tv-nav.js?v=202611081523"></script>
+<script src="tv/boxscore.js?v=202611081523"></script>
+<script src="tv/common.js?v=202611081523"></script>
 </head>
 <body>
 <header class="top">
@@ -139,6 +146,7 @@ html.dev-phone .sheet{padding:16px}
   <div class="sp"></div>
   <div class="clock" id="clock"></div>
   <button class="iconbtn" id="spoilbtn" type="button"></button>
+  <button class="iconbtn" id="searchbtn" type="button">🔍 Search</button>
   <button class="iconbtn" id="setbtn" type="button">⚙ Settings</button>
 </header>
 
@@ -162,6 +170,19 @@ html.dev-phone .sheet{padding:16px}
   <div class="sheet"><h2 id="gs-title"></h2><p class="sub" id="gs-sub"></p><div class="acts" id="gs-acts"></div></div>
 </div>
 
+<!-- search, typed or spoken -->
+<div class="layer" id="search" role="dialog" aria-modal="true" aria-label="Search" hidden>
+  <div class="sheet wide">
+    <h2>Search</h2>
+    <div class="srow">
+      <button class="chip mic" id="smic" type="button">🎤 Speak</button>
+      <input class="t" id="sq" type="search" placeholder="A team, a city, RedZone, NFL Network…" autocomplete="off" enterkeyhint="search">
+    </div>
+    <p class="note" id="shint" style="margin-top:10px"></p>
+    <div class="acts" id="sres"></div>
+  </div>
+</div>
+
 <!-- settings -->
 <div class="layer" id="settings" role="dialog" aria-modal="true" aria-label="Settings" hidden>
   <div class="sheet wide">
@@ -169,6 +190,8 @@ html.dev-phone .sheet{padding:16px}
     <p class="sub">Saved on this TV.</p>
     <div class="sec">Text size</div><div class="seg" id="set-zoom"></div>
     <div class="sec">Scores</div><div class="seg" id="set-spoil"></div>
+    <div class="sec">Game alerts while watching</div><div class="seg" id="set-alerts"></div>
+    <p class="note">A popup when another game gets close late, goes to overtime, or reaches the red zone. Up on the remote puts it in multiview.</p>
     <div class="sec">Stream sources</div>
     <div id="set-sources"></div>
     <div class="seg"><button class="chip" id="addsrc" type="button">+ Add a source</button></div>
@@ -331,7 +354,7 @@ function renderBar() {
     : state.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   $('today').hidden = sel === t;
   $('spoilbtn').textContent = STV.phone ? (S.spoilers ? '◌ Scores' : '◉ Scores') : (S.spoilers ? '◌ Scores hidden' : '◉ Scores shown');
-  if (STV.phone) $('setbtn').textContent = '⚙';
+  if (STV.phone) { $('setbtn').textContent = '⚙'; $('searchbtn').textContent = '🔍'; }
   const mv = multi();
   $('mvbtn').hidden = !mv.length;
   $('mvbtn').textContent = `▦ Multiview (${mv.length})`;
@@ -522,7 +545,7 @@ function showLayer(id) { $(id).hidden = false; }
 function hideLayer(id) { $(id).hidden = true; }
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  for (const id of ['srcform', 'settings', 'gamesheet']) if (!$(id).hidden) { hideLayer(id); e.preventDefault(); return; }
+  for (const id of ['srcform', 'search', 'settings', 'gamesheet']) if (!$(id).hidden) { hideLayer(id); e.preventDefault(); return; }
 });
 document.querySelectorAll('.layer').forEach(l => l.addEventListener('click', e => { if (e.target === l) hideLayer(l.id); }));
 
@@ -530,6 +553,9 @@ document.querySelectorAll('.layer').forEach(l => l.addEventListener('click', e =
 const ZOOMS = [85, 100, 115, 130];
 function renderSettings() {
   $('set-zoom').innerHTML = ZOOMS.map(z => `<button class="chip${S.textZoom === z ? ' on' : ''}" type="button" data-zoom="${z}">${z === 100 ? 'Normal' : z < 100 ? 'Small' : z === 115 ? 'Large' : 'Larger'}</button>`).join('');
+  const al = S.alerts || {};
+  $('set-alerts').innerHTML = [['close', 'Close finishes'], ['ot', 'Overtime'], ['rz', 'NFL red zone']]
+    .map(([k, label]) => `<button class="chip${al[k] ? ' on' : ''}" type="button" data-alert="${k}" aria-pressed="${!!al[k]}">${al[k] ? '✓ ' : ''}${label}</button>`).join('');
   $('set-spoil').innerHTML = `<button class="chip${S.spoilers ? ' on' : ''}" type="button" data-spoil="1">Hidden until I choose</button><button class="chip${S.spoilers ? '' : ' on'}" type="button" data-spoil="0">Always shown</button>`;
   STV.repoSources().then(repo => {
     const local = STV.localSources();
@@ -552,6 +578,10 @@ $('setdone').onclick = () => hideLayer('settings');
 $('settings').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.zoom) { S.textZoom = +b.dataset.zoom; STV.saveSettings(S); renderSettings(); refocus('[data-zoom="' + S.textZoom + '"]'); }
+  else if (b.dataset.alert) {
+    S.alerts = Object.assign({}, S.alerts || {}); S.alerts[b.dataset.alert] = !S.alerts[b.dataset.alert];
+    STV.saveSettings(S); renderSettings(); refocus('[data-alert="' + b.dataset.alert + '"]');
+  }
   else if (b.dataset.spoil) { S.spoilers = b.dataset.spoil === '1'; STV.saveSettings(S); renderSettings(); render(); refocus('[data-spoil="' + b.dataset.spoil + '"]'); }
   else if (b.dataset.edit) openForm(+b.dataset.edit);
   else if (b.dataset.del) {
@@ -623,6 +653,124 @@ $('prevday').onclick = () => stepDay(-1);
 $('nextday').onclick = () => stepDay(1);
 $('today').onclick = () => { state.date = today(); load(); refocus('#nextday'); };
 $('spoilbtn').onclick = () => { S.spoilers = !S.spoilers; STV.saveSettings(S); render(); };
+
+/* ---------- search: say or type a team, a city, "Knicks game", "watch the Jets", "RedZone" ----------
+   Looks through yesterday, today and the next 6 days. "Watch …" starts a live game right away. */
+const STOP = new Set(['the', 'a', 'an', 'game', 'games', 'match', 'vs', 'versus', 'at', 'v', 'and', 'on', 'for', 'show', 'me', 'find', 'search',
+  'please', 'tonight', 'today', 'tonights', 'todays', 'is', 'when', 'what', 'time', 'next', 'play', 'watch', 'open', 'put', 'start', 'stream', 'live']);
+const SPORT_WORDS = { nba: 'nba', basketball: 'nba', nfl: 'nfl', football: 'nfl' };
+const DAY_WORDS = { tomorrow: 1, yesterday: -1, last: -1 };
+const SEARCH_DAYS = [0, 1, -1, 2, 3, 4, 5, 6];
+let sItems = [], sSeq = 0;
+const words = q => q.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean);
+const teamWords = t => words(`${t.abbr} ${t.full} ${t.nick} ${t.short}`);
+const hit = (w, tw) => tw.some(x => x === w || (w.length >= 3 && (x.startsWith(w) || (x.length >= 4 && w.startsWith(x)))));
+async function runSearch(q) {
+  const my = ++sSeq, ws = words(q);
+  const wantsWatch = /^(please )?(watch|play|put on|start|stream|open)\b/i.test(q.trim());
+  let sport = null, dayOnly = null;
+  const rest = [];
+  for (const w of ws) {
+    if (SPORT_WORDS[w]) sport = SPORT_WORDS[w];
+    else if (w in DAY_WORDS) dayOnly = DAY_WORDS[w];
+    else if (!STOP.has(w) && w !== 'night') rest.push(w);
+  }
+  const joined = rest.join(' '), items = [];
+  // things that aren't games
+  if (/\b(red ?zone)\b/.test(joined)) items.push({ kind: 'key', key: 'nfl:redzone', label: 'NFL RedZone', sub: 'Every touchdown from every game', day: 0 });
+  for (const ch of CHANNELS) if (words(ch.name).every(w => ws.includes(w) || ws.join('').includes(w)))
+    items.push({ kind: 'key', key: `${ch.sport}:${ch.id}`, label: ch.name, sub: '24/7 channel', day: 0, live: true });
+  if (/\bmulti ?view\b/.test(joined)) items.push({ kind: 'multi', label: 'Open multiview', sub: `${multi().length} game${multi().length === 1 ? '' : 's'}` });
+  if (/\bsettings?\b/.test(joined)) items.push({ kind: 'settings', label: 'Settings', sub: '' });
+  const teamQ = rest.filter(w => !/^(red|zone|redzone|multi|view|multiview|settings?|network)$/.test(w));
+  if (teamQ.length) {
+    const days = dayOnly != null ? [dayOnly] : SEARCH_DAYS, t0 = today();
+    const sports = sport ? [sport] : ACTIVE;
+    $('shint').textContent = 'Looking…';
+    await Promise.all(days.flatMap(n => sports.map(s => fetchSport(s, ymd(addDays(t0, n))))));
+    if (my !== sSeq) return;
+    for (const n of days) for (const s of sports) {
+      for (const g of cache[s + ':' + ymd(addDays(t0, n))]?.events || []) {
+        const tw = g.teams.map(teamWords);
+        if (teamQ.every(w => tw.some(x => hit(w, x)))) items.push({ kind: 'game', g, day: n });
+      }
+    }
+  }
+  if (my !== sSeq) return;
+  const order = it => it.kind !== 'game' ? -1 : (it.day === 0 ? ({ in: 0, pre: 1, post: 3 }[it.g.state]) : it.day > 0 ? 2 + it.day * 0.01 : 4);
+  items.sort((a, b) => order(a) - order(b) || ((a.g?.date || 0) - (b.g?.date || 0)));
+  sItems = items;
+  drawResults(q);
+  // "watch the Knicks" with one live game that fits: straight to it
+  const live = items.filter(x => x.kind === 'game' && x.day === 0 && x.g.state === 'in');
+  if (wantsWatch && live.length === 1) { pickResult(items.indexOf(live[0]), true); return; }
+  if (wantsWatch && items.length === 1 && items[0].kind === 'key') { pickResult(0, true); return; }
+}
+function dayName(n, d) {
+  if (n === 0) return 'Today'; if (n === 1) return 'Tomorrow'; if (n === -1) return 'Yesterday';
+  return d.toLocaleDateString([], { weekday: 'long' });
+}
+function drawResults(q) {
+  if (!q.trim()) { $('sres').innerHTML = ''; $('shint').textContent = 'Say or type a team or city, like “Knicks”, “watch the Jets”, or “RedZone”.'; return; }
+  $('shint').textContent = sItems.length ? `${sItems.length} result${sItems.length === 1 ? '' : 's'} for “${q.trim()}”` : `Nothing found for “${q.trim()}” in the past day or the next week.`;
+  $('sres').innerHTML = sItems.slice(0, 12).map((it, i) => {
+    if (it.kind !== 'game') return `<button class="act" type="button" data-si="${i}"><b>${esc(it.label)}</b><small>${esc(it.sub)}</small></button>`;
+    const g = it.g, [a, h] = g.teams;
+    const when = g.state === 'in' && it.day === 0 ? '<span class="live">● Live</span>'
+      : g.state === 'pre' ? `${dayName(it.day, g.date)} ${g.date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+      : `${dayName(it.day, g.date)} · Final`;
+    return `<button class="act${g.state === 'in' && it.day === 0 ? ' primary' : ''}" type="button" data-si="${i}"><b>${esc(a.short)} at ${esc(h.short)}</b>${when}<small>${esc(SPORTS[g.sport].name)}</small></button>`;
+  }).join('');
+}
+async function pickResult(i, watchNow) {
+  const it = sItems[i]; if (!it) return;
+  if (it.kind === 'multi') { location.href = 'multi.html'; return; }
+  if (it.kind === 'settings') { hideLayer('search'); openSettings(); return; }
+  const key = it.kind === 'game' ? `${it.g.sport}:${it.g.id}` : it.key;
+  if (it.kind === 'game' && it.day !== 0) { state.date = addDays(today(), it.day); }
+  else state.date = today();
+  hideLayer('search');
+  await load();
+  const g = findGame(key);
+  if (!g) return;
+  if (watchNow && g.state === 'in') {
+    const vars = gameVars(g), srcs = (g.channel ? await STV.streamsFor(vars) : await STV.sourcesFor(g.sport)).filter(s => s.type !== 'app');
+    if (srcs.length) { location.href = `player.html?g=${encodeURIComponent(JSON.stringify(vars))}&s=${encodeURIComponent(srcs[0].id)}`; return; }
+  }
+  await openGame(key);
+  refocus('#gs-acts button');
+}
+let listening = false;
+function speak() {
+  if (!STV.bridge) { $('sq').focus(); return; }
+  STV.bridge.call('listen', 'Say a team or a game').then(ok => {
+    if (ok) { listening = true; $('smic').classList.add('on'); $('smic').textContent = '🎤 Listening…'; return; }
+    // no speech service on this device: the keyboard's own mic (or the remote's) types into the box
+    $('shint').textContent = STV.phone ? 'Tap the mic on the keyboard and talk.' : 'Hold the 🎤 button on the remote while the keyboard is up, and talk.';
+    nav() && nav().focus($('sq'));
+    STV.bridge.call('showKeyboard');
+  });
+}
+window.__tvHeard = text => {
+  listening = false; $('smic').classList.remove('on'); $('smic').textContent = '🎤 Speak';
+  if (!text) { $('shint').textContent = 'Didn’t catch that. Try again, or type it.'; return; }
+  $('sq').value = text; runSearch(text);
+  setTimeout(() => { const b = $('sres').querySelector('button'); if (b && nav()) nav().focus(b, { noScroll: true }); }, 50);
+};
+function openSearch(talk) {
+  $('sq').value = ''; sItems = []; drawResults('');
+  showLayer('search');
+  refocus('#smic');
+  if (talk) speak();
+}
+window.__tvSearch = () => { openSearch(true); return true; };
+let sT = null;
+$('sq').addEventListener('input', () => { clearTimeout(sT); sT = setTimeout(() => runSearch($('sq').value), 350); });
+$('sq').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); clearTimeout(sT); runSearch($('sq').value).then(() => { const b = $('sres').querySelector('button'); if (b && nav()) nav().focus(b, { noScroll: true }); }); } });
+$('smic').onclick = speak;
+$('sres').addEventListener('click', e => { const b = e.target.closest('[data-si]'); if (b) pickResult(+b.dataset.si, false); });
+$('searchbtn').onclick = () => openSearch(false);
+if (location.hash === '#search') { history.replaceState(null, '', location.pathname + location.search); setTimeout(() => openSearch(true), 600); }
 
 function tick() { $('clock').textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
 tick(); setInterval(tick, 15000);
