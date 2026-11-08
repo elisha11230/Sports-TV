@@ -88,10 +88,11 @@
     }
     return false;
   }
+  // runs before the screen is drawn, so a panel never shows with the ring left on what it covers
+  function soon() { checkLayer(); drawRing(); }
   try {
     new MutationObserver(function (list) {
-      if (dirty) return;
-      for (var i = 0; i < list.length; i++) if (!ours(list[i])) { dirty = true; return; }
+      for (var i = 0; i < list.length; i++) if (!ours(list[i])) { dirty = true; soon(); return; }
     }).observe(D.documentElement, { subtree: true, childList: true, attributes: true, attributeOldValue: true,
                                     attributeFilter: ['class', 'hidden', 'style', 'disabled', 'tabindex'] });
   } catch (e) {}
@@ -157,7 +158,7 @@
   function drawRing() {
     if (!ring) return;
     var el = focused;
-    if (!el || !el.isConnected || !shown(el)) { ring.style.display = 'none'; ring.__k = ''; return; }
+    if (!el || !el.isConnected || !shown(el) || (curLayer && !curLayer.contains(el))) { ring.style.display = 'none'; ring.__k = ''; return; }
     var r = rectOf(el);
     if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { ring.style.display = 'none'; ring.__k = ''; return; }
     var g = 4, x = Math.round(r.left - g), y = Math.round(r.top - g), w = Math.round(r.width + g * 2), h = Math.round(r.height + g * 2);
@@ -340,7 +341,7 @@
     dirty = true;
     if (L) {
       if (!openers.has(L)) openers.set(L, prev === null || (focused && !L.contains(focused)) ? focused : null);
-      if (!focused || !L.contains(focused) || !shown(focused)) setTimeout(function () { if (topLayer() === L) focusFirst(L); }, 60);
+      if (!focused || !L.contains(focused) || !shown(focused)) focusFirst(L);
     } else {
       var back = prev && openers.get(prev);
       if (prev) openers.delete(prev);
