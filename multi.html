@@ -71,9 +71,9 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #msg[hidden]{display:none}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081309"></script>
-<script src="tv/common.js?v=202611081309"></script>
-<script src="tv/boxscore.js?v=202611081309"></script>
+<script src="tv/tv-nav.js?v=202611081322"></script>
+<script src="tv/common.js?v=202611081322"></script>
+<script src="tv/boxscore.js?v=202611081322"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -137,7 +137,7 @@ function build() {
 function hookFrame(i) {
   const f = tileEl(i).querySelector('iframe');
   const t = tiles[i];
-  t.st = null; t.tapped = false;
+  t.st = null; t.tapped = false; t.qWant = null;   // a new player starts on its own quality
   if (f) f.addEventListener('load', () => { setTimeout(() => send(tiles.indexOf(t), 'status'), 600); setTimeout(() => send(tiles.indexOf(t), 'status'), 1500); });
   // a player that shows no video after a few seconds probably wants its play button clicked
   clearTimeout(t.tapT);
@@ -154,15 +154,48 @@ function tapTile(i) {
 }
 function paint() {
   const n = tiles.length;
-  $('grid').className = `n${n} ${n > 1 ? layout : 'grid'}`;
+  const cls = `n${n} ${n > 1 ? layout : 'grid'}`;
+  if ($('grid').className !== cls) $('grid').className = cls;
   tiles.forEach((t, i) => {
     const el = tileEl(i);
     el.classList.toggle('sel', i === sel && n > 1);
     el.classList.toggle('aud', i === audio);
     el.classList.toggle('big', i === big);
     const st = el.querySelector('.st');
-    st.textContent = !KEY ? '' : !t.st ? 'connecting…' : !t.st.has ? 'tap video' : t.st.paused ? 'paused'
-      : t.st.live && t.st.behind > 15 ? `${behind(t.st.behind)} behind` : '';
+    // whole seconds would change every check; show the time behind to the nearest 10 seconds
+    const txt = !KEY ? '' : !t.st ? 'connecting…' : !t.st.has ? 'tap video' : t.st.paused ? 'paused'
+      : t.st.live && t.st.behind > 15 ? `${behind(Math.round(t.st.behind / 10) * 10)} behind` : '';
+    if (st.textContent !== txt) st.textContent = txt;
+  });
+  autoQuality();
+}
+
+/* ---------- lighter streams for the muted games ----------
+   A Fire TV Stick decodes about two HD streams at once. With 3 or more games, the games without the
+   sound drop to about 480p and the game with the sound stays on Auto; the quality follows the sound.
+   A quality you pick yourself for a game is kept. */
+function lightId(q) {
+  const opts = q.list.map(x => ({ id: x.id, h: parseInt(x.label, 10) || 0 })).filter(x => x.h);
+  if (!opts.length) return null;
+  const under = opts.filter(x => x.h <= 540).sort((a, b) => b.h - a.h);
+  return (under[0] || opts.sort((a, b) => a.h - b.h)[0]).id;
+}
+// the best quality up to 1080p, for the game with the sound (players don't always climb back on Auto)
+function bestId(q) {
+  const opts = q.list.map(x => ({ id: x.id, h: parseInt(x.label, 10) || 0 })).filter(x => x.h && x.h <= 1080).sort((a, b) => b.h - a.h);
+  return opts.length ? opts[0].id : 'auto';
+}
+function autoQuality() {
+  const busy = tiles.length >= 3;
+  tiles.forEach((t, i) => {
+    const q = t.st && t.st.has && t.st.q;
+    if (!q || !q.list || !q.list.length || t.qManual) return;
+    // fewer than 3 games: leave untouched players on their own Auto; ones we lowered go back up
+    if (!busy && !t.qWant) return;
+    const want = busy && i !== audio ? lightId(q) : bestId(q);
+    if (!want || t.qWant === want) return;
+    t.qWant = want;
+    send(i, 'quality', want);
   });
 }
 
@@ -195,13 +228,14 @@ window.addEventListener('message', e => {
   }
   paint();
 });
-// check each game every second until its video is found, then every 3 seconds
+// check each game every 1.5 seconds until its video is found, then every 4.5 seconds,
+// staggered so the games aren't all asked at once
 let tick = 0;
 setInterval(() => {
   if (document.hidden) return;
   tick++;
-  tiles.forEach((t, i) => { if (!(t.st && t.st.has) || tick % 3 === 0) send(i, 'status'); });
-}, 1000);
+  tiles.forEach((t, i) => { if (!(t.st && t.st.has) || (tick + i) % 3 === 0) send(i, 'status'); });
+}, 1500);
 
 /* ---------- options bar ---------- */
 const barOpen = () => !$('bar').classList.contains('off');
@@ -268,7 +302,7 @@ function redrawKeep(a) {
 $('chips').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const a = b.dataset.a, t = tiles[sel];
-  if (b.dataset.q != null) { send(sel, 'quality', b.dataset.q); qualOpen = false; setTimeout(() => redrawKeep('qual'), 700); redrawKeep('qual'); return; }
+  if (b.dataset.q != null) { tiles[sel].qManual = true; tiles[sel].qWant = b.dataset.q; send(sel, 'quality', b.dataset.q); qualOpen = false; setTimeout(() => redrawKeep('qual'), 700); redrawKeep('qual'); return; }
   if (a === 'qual' || a === 'qdone') {
     qualOpen = a === 'qual'; drawBar();
     const el = $('chips').querySelector(qualOpen ? '.chip.on' : '[data-a="qual"]') || $('chips').querySelector('button');
@@ -419,7 +453,7 @@ $('pick').addEventListener('keydown', e => { if (e.key === 'Escape') { e.prevent
 $('pkl').addEventListener('click', async e => {
   const b = e.target.closest('[data-pk]'); if (!b) return;
   const it = pickItems[+b.dataset.pk];
-  const t = { v: it.v, si: 0, st: null, srcs: await STV.streamsFor(it.v) };
+  const t = { v: it.v, si: 0, st: null, srcs: await STV.streamsFor(it.v), qManual: false, qWant: null };
   if (pickFor >= 0 && tiles[pickFor]) {
     // switch: the tile keeps its spot, its sound and its size
     const i = pickFor;
