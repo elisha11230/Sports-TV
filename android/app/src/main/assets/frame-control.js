@@ -51,9 +51,36 @@
     }
     return null;
   }
+  /* ---------- a longer rewind and pause on live streams ----------
+     Live streams often keep only the last minute or so. Here the player keeps what it has already
+     downloaded (up to 15 minutes behind), keeps downloading while paused (up to 5 minutes ahead), and
+     treats the stream as having a 15 minute window so it doesn't jump forward after a pause.
+     The TV's video memory still limits how much is kept. */
+  function tune(g) {
+    if (!g || g.tuned) return;
+    g.tuned = true;
+    try {
+      if (g.kind === 'shaka') {
+        g.obj.configure({
+          manifest: { availabilityWindowOverride: 900 },
+          streaming: { bufferBehind: 900, bufferingGoal: 300 }
+        });
+      } else if (g.kind === 'hls') {
+        var c = g.obj.config;
+        c.backBufferLength = 900;
+        c.maxBufferLength = 300;
+        c.maxMaxBufferLength = 600;
+        // don't snap forward to live after a pause
+        c.liveMaxLatencyDurationCount = Infinity;
+        c.liveMaxLatencyDuration = Infinity;
+      }
+    } catch (e) {}
+  }
+
   function qualities(v) {
     var g = engineFor(v);
     if (!g) return null;
+    tune(g);
     try {
       if (g.kind === 'shaka') {
         var tracks = g.obj.getVariantTracks(), seen = {}, list = [], active = null;
