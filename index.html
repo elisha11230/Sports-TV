@@ -154,6 +154,10 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
     <div id="set-sources"></div>
     <div class="seg"><button class="chip" id="addsrc" type="button">+ Add a source</button></div>
     <p class="note" style="margin-top:12px">Sources in <code>sources.json</code> in the Sports-TV repo show up on every TV. Ones added here stay on this TV.</p>
+    <div id="set-app" hidden>
+      <div class="sec">App</div>
+      <div class="seg"><button class="chip" id="chkupd" type="button">Check for updates</button><span class="note" id="appver" style="align-self:center"></span></div>
+    </div>
     <div class="row2"><button class="act" id="setdone" type="button">Done</button></div>
   </div>
 </div>
@@ -445,7 +449,14 @@ function renderSettings() {
     $('set-sources').innerHTML = html || '<p class="note">No sources yet.</p>';
   });
 }
-function openSettings() { renderSettings(); showLayer('settings'); }
+function openSettings() {
+  renderSettings(); showLayer('settings');
+  if (STV.bridge) {
+    $('set-app').hidden = false;
+    STV.bridge.call('build').then(b => { $('appver').textContent = b ? `You have build ${b}. New builds are offered automatically.` : ''; });
+  }
+}
+$('chkupd').onclick = () => { if (STV.bridge) STV.bridge.call('checkUpdate'); };
 $('setbtn').onclick = openSettings;
 $('setdone').onclick = () => hideLayer('settings');
 $('settings').addEventListener('click', e => {

@@ -91,6 +91,7 @@ public class MainActivity extends Activity {
     // made fresh each launch; only the player page gets it, and embedded players obey only commands carrying it
     final String frameKey = UUID.randomUUID().toString();
     long lastBackAtHome = 0;
+    Updater updater;
     // the one outside address the player page may send the whole app to ("Open full page")
     volatile String allowedNav = null;
 
@@ -159,11 +160,15 @@ public class MainActivity extends Activity {
 
         if (saved != null) web.restoreState(saved);
         else web.loadUrl(HOME);
+
+        // look for a newer build a little after launch, then every few hours while the app stays open
+        updater = new Updater(this);
+        web.postDelayed(() -> updater.checkIfDue(), 6000);
     }
 
     @Override protected void onSaveInstanceState(Bundle out) { super.onSaveInstanceState(out); web.saveState(out); }
     @Override protected void onPause() { super.onPause(); web.onPause(); }
-    @Override protected void onResume() { super.onResume(); web.onResume(); }
+    @Override protected void onResume() { super.onResume(); web.onResume(); if (updater != null) updater.checkIfDue(); }
     @Override protected void onDestroy() { if (web != null) { web.destroy(); } super.onDestroy(); }
 
     /* ---------------- the remote ---------------- */
@@ -230,6 +235,8 @@ public class MainActivity extends Activity {
             Object r = null;
             switch (m) {
                 case "version": r = BuildConfig.VERSION_NAME; break;
+                case "build": r = BuildConfig.VERSION_CODE; break;
+                case "checkUpdate": runOnUiThread(() -> updater.checkNow()); r = true; break;
                 case "allowNav": allowedNav = a.optString(0, null); r = true; break;
                 case "frameKey": r = docStartScript ? frameKey : JSONObject.NULL; break;
                 case "launchApp": r = launchApp(a.optString(0)); break;

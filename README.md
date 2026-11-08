@@ -33,6 +33,10 @@ The app loads these pages from GitHub Pages, so changes to the pages (and the NB
 
 Note: Fire TV devices that run Vega OS (such as the Fire TV Stick 4K Select) don't run Android apps. Any Fire TV on Fire OS does.
 
+## Updates
+
+Changes to the pages (home screen, player, multiview, remote layer) reach the TV on their own. Changes to the Android app are offered by the app itself: a little after launch, and every 6 hours while it's open, it checks for a newer release and asks to update. Choose Update, then Install. The first time, Fire TV asks you to allow Press Box TV to install apps (Settings → My Fire TV → Developer Options → Install unknown apps → Press Box TV). Settings on the home screen also has "Check for updates".
+
 ## The remote
 
 | Button | What it does |
