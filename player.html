@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Watch · EB Sports</title>
 <style>
 :root{--ink:#EAF0F8;--ink2:#A7B4CA;--gold:#FFD54A}
@@ -38,12 +38,14 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 #tapzone{display:none;position:fixed;inset:0;z-index:5;-webkit-tap-highlight-color:transparent}
 html.dev-phone #tapzone{display:block}
 /* phones held upright: the video on top, the box score (or the game's name) underneath */
-html.dev-phone.portrait #stage,html.dev-phone.portrait #tapzone{bottom:auto;height:56.25vw}
-html.dev-phone.portrait #msg{bottom:auto;height:56.25vw;padding:16px;font-size:15px}
-html.dev-phone.portrait #boxp{top:56.25vw!important;bottom:0;height:auto!important;max-height:none!important;width:100vw!important;transform:none!important;background:#070B12!important;z-index:4;border-top:1px solid rgba(255,255,255,.08)}
+html.dev-phone.portrait{--vtop:max(var(--inset-top,0px),env(safe-area-inset-top,0px));background:#000}
+html.dev-phone.portrait #stage,html.dev-phone.portrait #tapzone{top:var(--vtop);bottom:auto;height:56.25vw}
+html.dev-phone.portrait #bar{top:var(--vtop)}
+html.dev-phone.portrait #msg{top:var(--vtop);bottom:auto;height:56.25vw;padding:16px;font-size:15px}
+html.dev-phone.portrait #boxp{top:calc(var(--vtop) + 56.25vw)!important;bottom:0;height:auto!important;max-height:none!important;width:100vw!important;transform:none!important;background:#070B12!important;z-index:4;border-top:1px solid rgba(255,255,255,.08)}
 html.dev-phone.portrait #boxp [data-x]{display:none}
 #below{display:none}
-html.dev-phone.portrait #below:not([hidden]){display:block;position:fixed;top:56.25vw;left:0;right:0;bottom:0;padding:18px 16px;background:#070B12;color:var(--ink2);font-size:14px;line-height:1.5}
+html.dev-phone.portrait #below:not([hidden]){display:block;position:fixed;top:calc(var(--vtop) + 56.25vw);left:0;right:0;bottom:0;padding:18px 16px;background:#070B12;color:var(--ink2);font-size:14px;line-height:1.5}
 #below h2{margin:0 0 6px;color:#EAF0F8;font-size:20px}
 html.dev-phone #bar{padding:10px 12px 22px}
 html.dev-phone .ic{width:38px;height:38px}
@@ -58,10 +60,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081840"></script>
-<script src="tv/common.js?v=202611081840"></script>
-<script src="tv/boxscore.js?v=202611081840"></script>
-<script src="tv/alerts.js?v=202611081840"></script>
+<script src="tv/tv-nav.js?v=202611081909"></script>
+<script src="tv/common.js?v=202611081909"></script>
+<script src="tv/boxscore.js?v=202611081909"></script>
+<script src="tv/alerts.js?v=202611081909"></script>
 </head>
 <body>
 <div id="stage"></div>

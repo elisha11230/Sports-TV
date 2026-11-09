@@ -14,6 +14,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.speech.RecognizerIntent;
@@ -23,6 +24,7 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.ConsoleMessage;
@@ -127,6 +129,21 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.parseColor("#0A111E"));
         root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        // the page draws under the camera and the (hidden) status bar; it's told how tall that strip is
+        web.setOnApplyWindowInsetsListener((v, ins) -> {
+            int top = 0;
+            try {
+                if (Build.VERSION.SDK_INT >= 30) {
+                    top = Math.max(ins.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top,
+                                   ins.getInsets(WindowInsets.Type.displayCutout()).top);
+                } else if (Build.VERSION.SDK_INT >= 28 && ins.getDisplayCutout() != null) {
+                    top = ins.getDisplayCutout().getSafeInsetTop();
+                }
+            } catch (Exception e) { top = 0; }
+            insetTop = top / getResources().getDisplayMetrics().density;
+            pushInsets();
+            return v.onApplyWindowInsets(ins);
+        });
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
@@ -244,6 +261,15 @@ public class MainActivity extends Activity {
         });
     }
 
+    /* ---------------- the strip at the top of a phone ----------------
+       Pages read it as the CSS variable --inset-top (the player keeps the video below it when upright). */
+    float insetTop = 0;
+    void pushInsets() {
+        if (isTv || web == null) return;
+        String js = "document.documentElement.style.setProperty('--inset-top','" + insetTop + "px')";
+        runOnUiThread(() -> web.evaluateJavascript(js, null));
+    }
+
     /* ---------------- talking to search ----------------
        Uses the device's speech service (phones with Google, and Fire TVs that have one). The words
        go back to the page through window.__tvHeard. Returns false when there's no speech service. */
@@ -323,6 +349,7 @@ public class MainActivity extends Activity {
                         if (imm != null) imm.showSoftInput(web, InputMethodManager.SHOW_IMPLICIT);
                     });
                     r = true; break;
+                case "insets": r = insetTop; break;
                 case "listen": r = listen(a.optString(0, "Say a team or a game")); break;
                 case "tap": r = tap((float) a.optDouble(0, 0.5), (float) a.optDouble(1, 0.5)); break;
                 case "exit": runOnUiThread(this::finish); r = true; break;
@@ -451,6 +478,7 @@ public class MainActivity extends Activity {
         public void onPageFinished(WebView view, String url) {
             // pages from other sites, and older web views, get the remote layer here
             if (url != null && url.startsWith("http")) view.evaluateJavascript(loader(isTv), null);
+            pushInsets();
         }
 
         @Override
