@@ -96,7 +96,7 @@ What a game's menu offers depends on where the game is:
 
 A game source can have `"replay"` (full game) and `"condensed"` addresses with the same codes as `"url"`, for example `"replay": "https://example.com/replay/{sport}/{homeNick}"`.
 
-**Channels** are 24/7 streams, kept apart from game sources in `sources.json` under `"channels"`: `{ "id": "nfl-network", "name": "NFL Network", "sport": "nfl", "url": "/embed/nfl-network" }`. An address starting with `/` uses the same site as that sport's first game source; give a full address if it lives on another site. Channels have their own "24/7 Channels" row above the day's games, the same every day (the sport filter narrows it), and can go in multiview.
+**Channels** are 24/7 streams, kept apart from game sources in `sources.json` under `"channels"`: `{ "id": "nfl-network", "name": "NFL Network", "sport": "nfl", "url": "/embed/nfl-network" }`. An address starting with `/` uses the same site as that sport's first game source; give a full address if it lives on another site. Channels have their own "24/7 Channels" row below the day's games, the same every day (the sport filter narrows it), and can go in multiview.
 
 ## Multiview and RedZone
 

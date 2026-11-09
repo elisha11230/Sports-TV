@@ -45,7 +45,8 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02e
 
 /* games */
 .games{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-#chans{margin-bottom:26px}
+#chbar{margin-top:30px}
+#chans{margin-bottom:10px}
 .game{border-radius:14px;background:var(--panel);border:1px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-height:118px}
 .game:hover{background:var(--panel2);border-color:#3A4C70}
 .gtop{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
@@ -139,9 +140,9 @@ html.dev-phone .sheet{padding:16px}
 
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611082020"></script>
-<script src="tv/boxscore.js?v=202611082020"></script>
-<script src="tv/common.js?v=202611082020"></script>
+<script src="tv/tv-nav.js?v=202611082021"></script>
+<script src="tv/boxscore.js?v=202611082021"></script>
+<script src="tv/common.js?v=202611082021"></script>
 </head>
 <body>
 <header class="top">
@@ -153,10 +154,6 @@ html.dev-phone .sheet{padding:16px}
   <button class="iconbtn" id="setbtn" type="button">⚙ Settings</button>
 </header>
 
-
-<!-- 24/7 channels: always on, so they sit above the day's schedule -->
-<div class="bar chbar" id="chbar" hidden><h3>24/7 Channels</h3></div>
-<section class="games" id="chans" hidden></section>
 
 <div class="bar">
   <h3>Games</h3>
@@ -170,6 +167,9 @@ html.dev-phone .sheet{padding:16px}
   </div>
 </div>
 <section class="games" id="games"></section>
+<!-- 24/7 channels: always on, so they sit below the day's schedule, the same every day -->
+<div class="bar chbar" id="chbar" hidden><h3>24/7 Channels</h3></div>
+<section class="games" id="chans" hidden></section>
 <p class="foot" id="foot"></p>
 
 <!-- a game's options -->
