@@ -92,10 +92,10 @@ html.dev-phone .hint{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .livedot.on{background:#FF3B45;box-shadow:0 0 6px rgba(255,59,69,.8)}
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081909"></script>
-<script src="tv/common.js?v=202611081909"></script>
-<script src="tv/boxscore.js?v=202611081909"></script>
-<script src="tv/alerts.js?v=202611081909"></script>
+<script src="tv/tv-nav.js?v=202611082017"></script>
+<script src="tv/common.js?v=202611082017"></script>
+<script src="tv/boxscore.js?v=202611082017"></script>
+<script src="tv/alerts.js?v=202611082017"></script>
 </head>
 <body>
 <div id="grid"></div>
@@ -465,7 +465,7 @@ async function loadPickItems() {
   for (const [s, evs] of boards) {
     for (const ch of chans.filter(c => c.sport === s))
       items.push({ v: { sport: s, gameId: ch.id, channel: ch.id, title: ch.name, key: `${s}:${ch.id}` }, label: ch.name, sub: '24/7 channel', live: true });
-    if (s === 'nfl' && evs.length) {
+    if (s === 'nfl' && evs.length && new Date().getDay() === 0) {
       const etd = STV.etDay(new Date());
       items.push({ v: { sport: 'nfl', gameId: 'redzone', date: etd, yyyymmdd: etd.replace(/-/g, ''), away: 'redzone', home: 'redzone', AWAY: 'REDZONE', HOME: 'REDZONE',
         awayNick: 'redzone', homeNick: 'redzone', awayName: 'redzone', homeName: 'redzone', title: 'NFL RedZone', key: 'nfl:redzone' },

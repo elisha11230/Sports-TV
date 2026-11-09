@@ -45,6 +45,7 @@ h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02e
 
 /* games */
 .games{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+#chans{margin-bottom:26px}
 .game{border-radius:14px;background:var(--panel);border:1px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-height:118px}
 .game:hover{background:var(--panel2);border-color:#3A4C70}
 .gtop{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
@@ -136,9 +137,9 @@ html.dev-phone .sheet{padding:16px}
 
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611081909"></script>
-<script src="tv/boxscore.js?v=202611081909"></script>
-<script src="tv/common.js?v=202611081909"></script>
+<script src="tv/tv-nav.js?v=202611082017"></script>
+<script src="tv/boxscore.js?v=202611082017"></script>
+<script src="tv/common.js?v=202611082017"></script>
 </head>
 <body>
 <header class="top">
@@ -150,6 +151,10 @@ html.dev-phone .sheet{padding:16px}
   <button class="iconbtn" id="setbtn" type="button">⚙ Settings</button>
 </header>
 
+
+<!-- 24/7 channels: always on, so they sit above the day's schedule -->
+<div class="bar chbar" id="chbar" hidden><h3>24/7 Channels</h3></div>
+<section class="games" id="chans" hidden></section>
 
 <div class="bar">
   <h3>Games</h3>
@@ -369,17 +374,20 @@ function renderGames() {
     const c = cache[s + ':' + key], err = errs[s + ':' + key];
     if (!c && !err) { loading = true; continue; }
     const ev = c ? c.events : [];
-    const chans = CHANNELS.filter(x => x.sport === s);
-    if (!ev.length && !err && !chans.length) continue;
+    if (!ev.length && !err) continue;
     any = true;
     if (show.length > 1) html += `<div class="sport-h" style="--c:var(--${s})">${esc(SPORTS[s].name)}</div>`;
-    html += chans.map(channelCard).join('');
-    if (s === 'nfl' && ev.length) html += redzoneCard(ev);
+    // RedZone only runs on Sundays with NFL games
+    if (s === 'nfl' && ev.length && state.date.getDay() === 0) html += redzoneCard(ev);
     html += err ? `<div class="empty">Couldn't load ${esc(SPORTS[s].name)} games (${esc(err)}).</div>` : ev.map(gameCard).join('');
   }
   if (!any) html = `<div class="empty">${loading ? 'Loading games…' : 'No games on this day.'}</div>`;
   const had = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.g;
   $('games').innerHTML = html;
+  // the channels row: every day, the filtered sport's channels (all of them under All)
+  const chans = CHANNELS.filter(x => show.includes(x.sport));
+  $('chans').innerHTML = chans.map(channelCard).join('');
+  $('chans').hidden = $('chbar').hidden = !chans.length;
   // keep the remote's place when the scores refresh
   if (had) { const el = document.querySelector(`[data-g="${had}"]`); if (el && nav()) nav().focus(el, { noScroll: true }); }
   $('foot').textContent = state.updated ? `Updated ${state.updated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · ESPN` : '';
@@ -779,7 +787,7 @@ tick(); setInterval(tick, 15000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
 load();
 // start on the first game if there is one, otherwise the sport filter
-setTimeout(() => { const el = document.querySelector('.game') || document.querySelector('#filters .chip.on'); if (el && nav()) nav().focus(el); }, 1200);
+setTimeout(() => { const el = document.querySelector('#games .game') || document.querySelector('.game') || document.querySelector('#filters .chip.on'); if (el && nav()) nav().focus(el); }, 1200);
 </script>
 </body>
 </html>
