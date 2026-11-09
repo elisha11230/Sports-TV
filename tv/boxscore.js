@@ -97,7 +97,11 @@ window.BOX = (function () {
   function open(g) {
     ensure();
     if (!g || !PATHS[g.sport]) return;
-    if (!game || game.gameId !== g.gameId) { last = null; side = 1; el.querySelector('#boxb').innerHTML = '<p class="note">Loading…</p>'; }
+    if (!game || game.gameId !== g.gameId) {
+      last = null; side = 1;
+      var dl = STV.scoreDelay ? STV.scoreDelay() : 0;
+      el.querySelector('#boxb').innerHTML = '<p class="note">Loading…' + (dl ? ' (scores ' + dl + ' sec behind, set in Settings)' : '') + '</p>';
+    }
     game = g;
     el.hidden = false;
     requestAnimationFrame(function () { el.classList.add('on'); });
@@ -122,7 +126,8 @@ window.BOX = (function () {
       ? base + '/scoreboard?dates=' + (g.yyyymmdd || '')
       : base + '/summary?event=' + encodeURIComponent(g.gameId);
     fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function (d) { if (game !== g) return; last = d; draw(); })
+      // held back by the score delay (Settings) so the box score doesn't get ahead of the stream
+      .then(function (d) { STV.afterDelay(function () { if (game !== g) return; last = d; draw(); }); })
       .catch(function () { if (game === g && !last) el.querySelector('#boxb').innerHTML = '<p class="note">Couldn\'t load the box score.</p>'; });
   }
 

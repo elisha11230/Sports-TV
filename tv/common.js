@@ -18,9 +18,13 @@ window.STV = (function () {
     set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
 
-  var DEFAULTS = { spoilers: true, textZoom: 100, filter: 'all', alerts: { close: true, ot: true, rz: false } };
+  var DEFAULTS = { spoilers: true, textZoom: 100, filter: 'all', alerts: { close: true, ot: true, rz: false }, scoreDelay: 5 };
   function settings() { var s = store.get('stv.settings', {}); var o = {}; for (var k in DEFAULTS) o[k] = DEFAULTS[k]; for (var j in s) o[j] = s[j]; return o; }
   function saveSettings(s) { store.set('stv.settings', s); applyZoom(s.textZoom); }
+  /* score delay: live scores and box scores are held back this many seconds (Settings, default 5) so
+     they don't get ahead of a stream that runs behind the real game */
+  function scoreDelay() { var d = +settings().scoreDelay; return d > 0 ? d : 0; }
+  function afterDelay(fn) { var d = scoreDelay(); if (!d) return fn(); setTimeout(fn, d * 1000); }
 
   /* ---------- the Fire TV app ----------
      The app gives the sports site (and only it) a window.SportsTV channel. Each call returns a
@@ -172,7 +176,7 @@ window.STV = (function () {
   applyZoom(settings().textZoom);
 
   return {
-    store: store, settings: settings, saveSettings: saveSettings,
+    store: store, settings: settings, saveSettings: saveSettings, scoreDelay: scoreDelay, afterDelay: afterDelay,
     localSources: localSources, saveLocalSources: saveLocalSources, repoSources: repoSources,
     device: DEVICE, phone: DEVICE === 'phone', sourcesFor: sourcesFor, streamsFor: streamsFor, channels: channels, fill: fill, slug: slug, etDay: etDay, bridge: bridge, icon: icon, vars: vars
   };

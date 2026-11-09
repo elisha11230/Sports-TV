@@ -61,7 +61,7 @@
     Promise.all(Object.keys(PATHS).map(function (sp) {
       return fetch('https://site.api.espn.com/apis/site/v2/sports/' + PATHS[sp] + '/scoreboard?dates=' + day, { cache: 'no-store' })
         .then(function (r) { return r.json(); })
-        .then(function (j) { (j.events || []).forEach(function (ev) { check(sp, ev); }); })
+        .then(function (j) { STV.afterDelay(function () { (j.events || []).forEach(function (ev) { check(sp, ev); }); }); })
         .catch(function () {});
     })).then(function () { timer = setTimeout(poll, 30000); });
   }

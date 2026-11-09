@@ -137,9 +137,9 @@ html.dev-phone .sheet{padding:16px}
 
 </style>
 <script>window.__STV_FORCE = 1</script>
-<script src="tv/tv-nav.js?v=202611082017"></script>
-<script src="tv/boxscore.js?v=202611082017"></script>
-<script src="tv/common.js?v=202611082017"></script>
+<script src="tv/tv-nav.js?v=202611082020"></script>
+<script src="tv/boxscore.js?v=202611082020"></script>
+<script src="tv/common.js?v=202611082020"></script>
 </head>
 <body>
 <header class="top">
@@ -195,6 +195,8 @@ html.dev-phone .sheet{padding:16px}
     <p class="sub">Saved on this TV.</p>
     <div class="sec">Text size</div><div class="seg" id="set-zoom"></div>
     <div class="sec">Scores</div><div class="seg" id="set-spoil"></div>
+    <div class="sec">Score delay</div><div class="seg" id="set-delay"></div>
+    <p class="note">Live scores and box scores wait this long before updating, so they don’t get ahead of a stream that runs behind the game.</p>
     <div id="set-alerts-box" hidden>
       <div class="sec">Game alerts while watching</div><div class="seg" id="set-alerts"></div>
       <p class="note">A popup when another game gets close late, goes to overtime, or reaches the red zone. Up on the remote puts it in multiview.</p>
@@ -297,7 +299,10 @@ async function fetchSport(s, key, force) {
   if (hit && (past || (!force && Date.now() - hit.at < 20000))) return;
   try {
     const d = await getJSON(`https://site.api.espn.com/apis/site/v2/sports/${SPORTS[s].path}/scoreboard?dates=${key}${SPORTS[s].q}`);
-    cache[ck] = { at: Date.now(), events: (d.events || []).map(e => norm(e, s)).sort((a, b) => (rank[a.state] - rank[b.state]) || (a.date - b.date)) };
+    const events = (d.events || []).map(e => norm(e, s)).sort((a, b) => (rank[a.state] - rank[b.state]) || (a.date - b.date));
+    // updates are held back by the score delay; the first look at a day shows right away
+    if (hit && !past) await new Promise(r => STV.afterDelay(r));
+    cache[ck] = { at: Date.now(), events };
     delete errs[ck];
   } catch (e) { errs[ck] = e.name === 'AbortError' ? 'timed out' : (e.message || 'failed'); }
 }
@@ -567,6 +572,9 @@ function renderSettings() {
   const al = S.alerts || {};
   $('set-alerts').innerHTML = [['close', 'Close finishes'], ['ot', 'Overtime'], ['rz', 'NFL red zone']]
     .map(([k, label]) => `<button class="chip${al[k] ? ' on' : ''}" type="button" data-alert="${k}" aria-pressed="${!!al[k]}">${al[k] ? '✓ ' : ''}${label}</button>`).join('');
+  const dl = STV.scoreDelay();
+  $('set-delay').innerHTML = [[0, 'Off'], [5, '5 sec'], [10, '10 sec'], [20, '20 sec'], [30, '30 sec'], [60, '1 min'], [120, '2 min']]
+    .map(([v, label]) => `<button class="chip${dl === v ? ' on' : ''}" type="button" data-delay="${v}">${label}</button>`).join('');
   $('set-spoil').innerHTML = `<button class="chip${S.spoilers ? ' on' : ''}" type="button" data-spoil="1">Hidden until I choose</button><button class="chip${S.spoilers ? '' : ' on'}" type="button" data-spoil="0">Always shown</button>`;
   STV.repoSources().then(repo => {
     const local = STV.localSources();
@@ -593,6 +601,7 @@ $('settings').addEventListener('click', e => {
     S.alerts = Object.assign({}, S.alerts || {}); S.alerts[b.dataset.alert] = !S.alerts[b.dataset.alert];
     STV.saveSettings(S); renderSettings(); refocus('[data-alert="' + b.dataset.alert + '"]');
   }
+  else if (b.dataset.delay != null) { S.scoreDelay = +b.dataset.delay; STV.saveSettings(S); renderSettings(); refocus('[data-delay="' + b.dataset.delay + '"]'); }
   else if (b.dataset.spoil) { S.spoilers = b.dataset.spoil === '1'; STV.saveSettings(S); renderSettings(); render(); refocus('[data-spoil="' + b.dataset.spoil + '"]'); }
   else if (b.dataset.edit) openForm(+b.dataset.edit);
   else if (b.dataset.del) {

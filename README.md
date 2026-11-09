@@ -80,6 +80,9 @@ The app adds a small script (`android/app/src/main/assets/frame-control.js`) ins
 ### Popups and redirects
 Stream frames are not sandboxed unless a source asks for it (`"sandbox": true`, or "Popups and redirects: Block them" in the source's settings on the TV), since most stream sites refuse to play in a sandboxed frame. Popups and redirects are stopped by the app instead: the frame's `window.open` does nothing, and the app drops popups, outside redirects and app links while the player or multiview is showing. In a desktop browser there's no app, so a site's ads can open popups there.
 
+## Score delay
+Live scores and box scores are held back (Settings, Score delay: off, 5, 10, 20, 30 seconds, 1 or 2 minutes; 5 seconds to start) so they don't get ahead of a stream that runs behind the real game. The home screen's first look at a day shows right away; later updates wait. The box score waits on its first load too.
+
 ## Box score
 
 While a game plays, press Down (or the stats button in the controls) and a box score slides in on the right, like Prime Video's: the score by quarter, team stats, and player stats with a button for each team. Up and Down scroll it, Left and Right switch teams, it updates every 15 seconds, and Back closes it. On RedZone it lists every NFL game of the day with live down and distance. In multiview, the stats button shows the selected game's box score. Data comes from ESPN's game summary (`tv/boxscore.js`).
