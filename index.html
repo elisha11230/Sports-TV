@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>EB Sports</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -110,6 +110,8 @@ code{font-size:13px;background:#0C1426;padding:1px 6px;border-radius:6px;color:#
 
 /* ---------- phones ---------- */
 html.dev-phone body{padding:12px 12px 30px}
+/* upright phones: keep clear of the camera and status bar strip (the app measures it) */
+@media (orientation:portrait){html.dev-phone body{padding-top:calc(12px + max(var(--inset-top,0px),env(safe-area-inset-top,0px)))}}
 html.dev-phone .top{gap:8px;margin-bottom:12px}
 html.dev-phone .top .sp{display:none}
 html.dev-phone .brand{font-size:24px;flex:1}

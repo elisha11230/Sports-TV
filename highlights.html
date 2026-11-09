@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Highlights · EB Sports</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,6 +40,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 /* ---------- phones ---------- */
 html.dev-phone body{padding:12px 12px 30px}
+/* upright phones: keep clear of the camera and status bar strip (the app measures it) */
+@media (orientation:portrait){html.dev-phone body{padding-top:calc(12px + max(var(--inset-top,0px),env(safe-area-inset-top,0px)))}}
 @media (max-width:760px){ .clips{grid-template-columns:1fr 1fr} .top{flex-wrap:wrap} }
 @media (max-width:480px){ .clips{grid-template-columns:1fr} }
 </style>
